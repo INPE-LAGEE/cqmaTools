@@ -3,15 +3,16 @@
 \docType{methods}
 \name{crossdata}
 \alias{crossdata}
-\alias{crossdata,cqmaTools-method}
+\alias{crossdata,list,data.frame,numeric,character,numeric-method}
 \alias{crossdata-generic}
 \title{Get the stations' data matching the trajectory records. It takes a trajectory's first point over the sea and project its latitude to an straight line made by the corresponding metereological stations}
 \usage{
 crossdata(traj.intersections, stations.df, tolerance.sec, timezone,
   searchTranslation)
 
-\S4method{crossdata}{cqmaTools}(traj.intersections, stations.df, tolerance.sec,
-  timezone, searchTranslation)
+
+  \S4method{crossdata}{list,data.frame,numeric,character,numeric}(traj.intersections,
+  stations.df, tolerance.sec, timezone, searchTranslation)
 }
 \arguments{
 \item{traj.intersections}{A list made of a character vector and a list. The character vector is the path to each trajectory file while the list contains the first row in the trajectory file which lies over the sea}

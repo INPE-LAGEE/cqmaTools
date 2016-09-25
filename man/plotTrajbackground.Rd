@@ -3,7 +3,7 @@
 \docType{methods}
 \name{plotTrajbackground}
 \alias{plotTrajbackground}
-\alias{plotTrajbackground,cqmaTools-method}
+\alias{plotTrajbackground,character,character,list,list,character,numeric,numeric,numeric,numeric,numeric,numeric,numeric,numeric,numeric,data.frame-method}
 \alias{plotTrajbackground-generic}
 \title{Plot the input data into map, section, and profile graphs. These plots are stored in disk}
 \usage{
@@ -11,9 +11,11 @@ plotTrajbackground(file.in, path.out, traj.interpol, traj.intersections, device,
   map.xlim, map.ylim, map.height, map.width, sec.width, sec.height, prof.height,
   prof.width, nsd, stations.df)
 
-\S4method{plotTrajbackground}{cqmaTools}(file.in, path.out, traj.interpol,
-  traj.intersections, device, map.xlim, map.ylim, map.height, map.width,
-  sec.width, sec.height, prof.height, prof.width, nsd, stations.df)
+
+  \S4method{plotTrajbackground}{character,character,list,list,character,numeric,numeric,numeric,numeric,numeric,numeric,numeric,numeric,numeric,data.frame}(file.in,
+  path.out, traj.interpol, traj.intersections, device, map.xlim, map.ylim,
+  map.height, map.width, sec.width, sec.height, prof.height, prof.width, nsd,
+  stations.df)
 }
 \arguments{
 \item{file.in}{A character. The path to a filtered observations file or flag filtered raw data}

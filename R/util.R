@@ -7,22 +7,6 @@
 
 
 
-# Taken from https://www.r-bloggers.com/identifying-the-os-from-r/
-get_os <- function(){
-  sysinf <- Sys.info()
-  if (!is.null(sysinf)){
-    os <- sysinf['sysname']
-    if (os == 'Darwin')
-      os <- "osx"
-  } else { ## mystery machine
-    os <- .Platform$OS.type
-    if (grepl("^darwin", R.version$os))
-      os <- "osx"
-    if (grepl("linux-gnu", R.version$os))
-      os <- "linux"
-  }
-  tolower(os)
-}
 
 
 
@@ -276,9 +260,9 @@ get_os <- function(){
 # @return A character list of the created files
 .runsimulation <- function(path.in, backTrajTime, hysplit.exec.path, hysplit.work.path, path.out, timezone){
   exec.file <- file.path(hysplit.exec.path, "hyts_std", fsep = .Platform$file.sep)
-  if(get_os() == "windows"){
-    exec.file <- file.path(hysplit.exec.path, "hyts_std.exe", fsep = .Platform$file.sep)
-  }
+  #if(get_os() == "windows"){
+    #exec.file <- file.path(hysplit.exec.path, "hyts_std.exe", fsep = .Platform$file.sep)
+  #}
   if(!file.exists(exec.file)){
     stop("ERROR: Hysplit's executables not found")
   }
@@ -1036,7 +1020,7 @@ get_os <- function(){
       plot.lonsec <- file.path(path.out, paste(dtraj.df[1, "profile"], "_sectionlon.", device, sep = ""), fsep = .Platform$file.sep)
       plot.latsec <- file.path(path.out, paste(dtraj.df[1, "profile"], "_sectionlat.", device, sep = ""), fsep = .Platform$file.sep)
       slon <- ggplot2::ggplot(data = dtraj.df[, c("lon", "height", "filename", "onSea")], 
-                            mapping = ggplot2::aes(x = lon, y = height, group = filename, colour = filename)) +
+                              mapping = ggplot2::aes(x = lon, y = height, group = filename, colour = filename)) +
         ggplot2::geom_path() + ggplot2::xlim(map.xlim) + 
         ggplot2::labs(x = "longitude", y = "height", color = "trajectory") + 
         ggplot2::geom_point(data = dtraj.df[dtraj.df$onSea, ], mapping = ggplot2::aes(x = lon, y = height, group = filename, colour = filename)) + 
@@ -1052,7 +1036,7 @@ get_os <- function(){
       # plot 3 - profile
       plot.profile <- file.path(path.out, paste(dtraj.df[1, "profile"], "_profile.", device, sep = ""), fsep = .Platform$file.sep)    
       p <- ggplot2::ggplot(data = profile.dat, mapping = ggplot2::aes(x = concentration, y = height, 
-                                                                       group = type, colour = type)) + 
+                                                                      group = type, colour = type)) + 
         ggplot2::geom_path() +
         ggplot2::geom_point() + 
         ggplot2::geom_path()

@@ -3,13 +3,14 @@
 \docType{methods}
 \name{trajOutInterpolation}
 \alias{trajOutInterpolation}
-\alias{trajOutInterpolation,cqmaTools-method}
+\alias{trajOutInterpolation,list,data.frame-method}
 \alias{trajOutInterpolation-generic}
 \title{Check if the trajectories' intersections fall inside the metereological station coverage}
 \usage{
 trajOutInterpolation(traj.intersections, stations.df)
 
-\S4method{trajOutInterpolation}{cqmaTools}(traj.intersections, stations.df)
+\S4method{trajOutInterpolation}{list,data.frame}(traj.intersections,
+  stations.df)
 }
 \arguments{
 \item{traj.intersections}{A list made of a character vector and a list. The character vector is the path to each trajectory file while the list contains the first row in the trajectory file which lies over the sea}

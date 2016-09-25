@@ -3,13 +3,13 @@
 \docType{methods}
 \name{intersectTraj}
 \alias{intersectTraj}
-\alias{intersectTraj,cqmaTools-method}
+\alias{intersectTraj,character,SpatialLinesDataFrame-method}
 \alias{intersectTraj-generic}
 \title{Find trajectories' first point over the sea.}
 \usage{
 intersectTraj(file.vec, limit.in)
 
-\S4method{intersectTraj}{cqmaTools}(file.vec, limit.in)
+\S4method{intersectTraj}{character,SpatialLinesDataFrame}(file.vec, limit.in)
 }
 \arguments{
 \item{file.vec}{A character vector. The paths to the input files}

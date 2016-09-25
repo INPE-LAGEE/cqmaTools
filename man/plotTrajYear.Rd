@@ -3,15 +3,16 @@
 \docType{methods}
 \name{plotTrajYear}
 \alias{plotTrajYear}
-\alias{plotTrajYear,cqmaTools-method}
+\alias{plotTrajYear,character,character,character,numeric,numeric,numeric,numeric,data.frame-method}
 \alias{plotTrajYear-generic}
 \title{Plot the trajectories grouped by year}
 \usage{
 plotTrajYear(file.vec, path.out, device, map.xlim, map.ylim, map.height,
   map.width, stations.df)
 
-\S4method{plotTrajYear}{cqmaTools}(file.vec, path.out, device, map.xlim,
-  map.ylim, map.height, map.width, stations.df)
+
+  \S4method{plotTrajYear}{character,character,character,numeric,numeric,numeric,numeric,data.frame}(file.vec,
+  path.out, device, map.xlim, map.ylim, map.height, map.width, stations.df)
 }
 \arguments{
 \item{file.vec}{A character vector. The paths to  trajectory files}

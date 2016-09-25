@@ -3,13 +3,13 @@
 \docType{methods}
 \name{filterTrajHeight}
 \alias{filterTrajHeight}
-\alias{filterTrajHeight,cqmaTools-method}
+\alias{filterTrajHeight,character,numeric-method}
 \alias{filterTrajHeight-generic}
 \title{Check if the trajectories are above the given treshold}
 \usage{
 filterTrajHeight(file.vec, above)
 
-\S4method{filterTrajHeight}{cqmaTools}(file.vec, above)
+\S4method{filterTrajHeight}{character,numeric}(file.vec, above)
 }
 \arguments{
 \item{file.vec}{A character vector. The paths to the input files}

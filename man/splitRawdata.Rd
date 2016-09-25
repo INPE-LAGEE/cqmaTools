@@ -3,13 +3,14 @@
 \docType{methods}
 \name{splitRawdata}
 \alias{splitRawdata}
-\alias{splitRawdata,cqmaTools-method}
+\alias{splitRawdata,character,character,character,character-method}
 \alias{splitRawdata-generic}
 \title{Split a single raw data file. The output files are prefixed with "traj_specs_".}
 \usage{
 splitRawdata(file.in, path.out, colname, keepFlags)
 
-\S4method{splitRawdata}{cqmaTools}(file.in, path.out, colname, keepFlags)
+\S4method{splitRawdata}{character,character,character,character}(file.in,
+  path.out, colname, keepFlags)
 }
 \arguments{
 \item{file.in}{Path to a raw data file}

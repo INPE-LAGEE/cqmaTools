@@ -3,24 +3,25 @@
 \docType{methods}
 \name{runsimulation}
 \alias{runsimulation}
-\alias{runsimulation,cqmaTools-method}
+\alias{runsimulation,character,numeric,character,character,character,character-method}
 \alias{runsimulation-generic}
 \title{Run HYSPLIT simulations for the traj_spec files in the given path}
 \usage{
 runsimulation(path.in, backTrajTime, hysplit.exec.path, hysplit.work.path,
   path.out, timezone)
 
-\S4method{runsimulation}{cqmaTools}(path.in, backTrajTime, hysplit.exec.path,
-  hysplit.work.path, path.out, timezone)
+
+  \S4method{runsimulation}{character,numeric,character,character,character,character}(path.in,
+  backTrajTime, hysplit.exec.path, hysplit.work.path, path.out, timezone)
 }
 \arguments{
 \item{path.in}{A character representing a folder with traj_spec files}
 
-\item{backTrajTime}{numeric. Time to modify the hysplit file search. For example, 10 days to the past is (10 * 24 * 3600) * (-1)}
+\item{backTrajTime}{A numeric. Time to modify the hysplit file search. For example, 10 days to the past is (10 * 24 * 3600) * (-1)}
 
-\item{hysplit.exec.path}{path to the HYSPLIT's exec folder.}
+\item{hysplit.exec.path}{A path to the HYSPLIT's exec folder.}
 
-\item{hysplit.work.path}{path to the HYSPLIT's working folder.}
+\item{hysplit.work.path}{A path to the HYSPLIT's working folder.}
 
 \item{path.out}{A character. The path to store the resulting files. Usually HYSPLIT's simulations folder.}
 

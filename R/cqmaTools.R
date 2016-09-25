@@ -67,10 +67,12 @@ cqmaTools <- function(){
 setGeneric("splitRawdata",function(file.in, path.out, colname, keepFlags){standardGeneric ("splitRawdata")})
 
 #' @rdname splitRawdata
-setMethod("splitRawdata","cqmaTools",
-          function(file.in, path.out, colname, keepFlags){
-            .splitRawdata(file.in, path.out, colname, keepFlags)
-          }
+setMethod(
+  "splitRawdata",
+  c("character", "character", "character", "character"),
+  function(file.in, path.out, colname, keepFlags){
+    .splitRawdata(file.in[1], path.out[1], colname[1], keepFlags)
+  }
 )
 
 
@@ -78,9 +80,9 @@ setMethod("splitRawdata","cqmaTools",
 #' Run HYSPLIT simulations for the traj_spec files in the given path
 #'
 #' @param path.in A character representing a folder with traj_spec files
-#' @param backTrajTime numeric. Time to modify the hysplit file search. For example, 10 days to the past is (10 * 24 * 3600) * (-1)
-#' @param hysplit.exec.path path to the HYSPLIT's exec folder.
-#' @param hysplit.work.path path to the HYSPLIT's working folder.
+#' @param backTrajTime A numeric. Time to modify the hysplit file search. For example, 10 days to the past is (10 * 24 * 3600) * (-1)
+#' @param hysplit.exec.path A path to the HYSPLIT's exec folder.
+#' @param hysplit.work.path A path to the HYSPLIT's working folder.
 #' @param path.out A character. The path to store the resulting files. Usually HYSPLIT's simulations folder.
 #' @param timezone A character. The time zone used for date computations.i.e. GMT
 #' @return A character list of the created files
@@ -90,9 +92,10 @@ setMethod("splitRawdata","cqmaTools",
 setGeneric("runsimulation",function(path.in, backTrajTime, hysplit.exec.path, hysplit.work.path, path.out, timezone){standardGeneric ("runsimulation")})
 
 #' @rdname runsimulation
-setMethod("runsimulation","cqmaTools",
+setMethod("runsimulation",
+          c("character", "numeric", "character", "character", "character", "character"),
           function(path.in, backTrajTime, hysplit.exec.path, hysplit.work.path, path.out, timezone){
-            .runsimulation(path.in, backTrajTime, hysplit.exec.path, hysplit.work.path, path.out, timezone)
+            .runsimulation(path.in[1], backTrajTime[1], hysplit.exec.path[1], hysplit.work.path[1], path.out[1], timezone[1])
           }
 )
 
@@ -110,9 +113,10 @@ setMethod("runsimulation","cqmaTools",
 setGeneric("removeHeaders",function(file.vec, path.out, skip){standardGeneric ("removeHeaders")})
 
 #' @rdname removeHeaders
-setMethod("removeHeaders","cqmaTools",
+setMethod("removeHeaders",
+          c("character", "character", "numeric"),
           function(file.vec, path.out, skip){
-            .removeHeaders(file.vec, path.out, skip)
+            .removeHeaders(file.vec, path.out[1], skip[1])
           }
 )
 
@@ -129,9 +133,10 @@ setMethod("removeHeaders","cqmaTools",
 setGeneric("filterTrajHeight",function(file.vec, above){standardGeneric ("filterTrajHeight")})
 
 #' @rdname filterTrajHeight
-setMethod("filterTrajHeight","cqmaTools",
+setMethod("filterTrajHeight",
+          c("character", "numeric"),
           function(file.vec, above){
-            .filterTrajHeight(file.vec, above)
+            .filterTrajHeight(file.vec, above[1])
           }
 )
 
@@ -148,7 +153,8 @@ setMethod("filterTrajHeight","cqmaTools",
 setGeneric("intersectTraj",function(file.vec, limit.in){standardGeneric ("intersectTraj")})
 
 #' @rdname intersectTraj
-setMethod("intersectTraj","cqmaTools",
+setMethod("intersectTraj", 
+          c("character", "SpatialLinesDataFrame"),
           function(file.vec, limit.in){
             .intersectTraj(file.vec, limit.in)
           }
@@ -166,9 +172,10 @@ setMethod("intersectTraj","cqmaTools",
 setGeneric("trajreachthesea",function(traj.intersections){standardGeneric ("trajreachthesea")})
 
 #' @rdname trajreachthesea
-setMethod("trajreachthesea","cqmaTools",
+setMethod("trajreachthesea", 
+          c("list"),
           function(traj.intersections){
-            .trajreachthesea(traj.intersections)
+            .trajreachthesea(traj.intersections[1:2])
           }
 )
 
@@ -185,9 +192,10 @@ setMethod("trajreachthesea","cqmaTools",
 setGeneric("trajOutInterpolation",function(traj.intersections, stations.df){standardGeneric ("trajOutInterpolation")})
 
 #' @rdname trajOutInterpolation
-setMethod("trajOutInterpolation","cqmaTools",
+setMethod("trajOutInterpolation", 
+          c("list", "data.frame"),
           function(traj.intersections, stations.df){
-            .trajOutInterpolation(traj.intersections, stations.df)
+            .trajOutInterpolation(traj.intersections[1:2], stations.df)
           }
 )
 
@@ -207,9 +215,10 @@ setMethod("trajOutInterpolation","cqmaTools",
 setGeneric("crossdata",function(traj.intersections, stations.df, tolerance.sec, timezone, searchTranslation){standardGeneric ("crossdata")})
 
 #' @rdname crossdata
-setMethod("crossdata","cqmaTools",
+setMethod("crossdata", 
+          c("list", "data.frame", "numeric", "character", "numeric"),
           function(traj.intersections, stations.df, tolerance.sec, timezone, searchTranslation){
-            .crossdata(traj.intersections, stations.df, tolerance.sec, timezone, searchTranslation)
+            .crossdata(traj.intersections[1:2], stations.df, tolerance.sec[1], timezone[1], searchTranslation[1])
           }
 )
 
@@ -239,9 +248,27 @@ setMethod("crossdata","cqmaTools",
 setGeneric("plotTrajbackground",function(file.in, path.out, traj.interpol, traj.intersections, device, map.xlim, map.ylim, map.height, map.width, sec.width, sec.height, prof.height, prof.width, nsd, stations.df){standardGeneric ("plotTrajbackground")})
 
 #' @rdname plotTrajbackground
-setMethod("plotTrajbackground","cqmaTools",
+setMethod("plotTrajbackground", 
+          c("character", "character", "list", "list", "character", "numeric", 
+            "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
+            "numeric", "numeric", "data.frame"),
           function(file.in, path.out, traj.interpol, traj.intersections, device, map.xlim, map.ylim, map.height, map.width, sec.width, sec.height, prof.height, prof.width, nsd, stations.df){
-            .plotTrajbackground(file.in, path.out, traj.interpol, traj.intersections, device, map.xlim, map.ylim, map.height, map.width, sec.width, sec.height, prof.height, prof.width, nsd, stations.df)
+            .plotTrajbackground(
+              file.in[1], 
+              path.out[1], 
+              traj.interpol, 
+              traj.intersections[1:2], 
+              device[1], 
+              map.xlim[1:2], 
+              map.ylim[1:2], 
+              map.height[1], 
+              map.width[1], 
+              sec.width[1], 
+              sec.height[1], 
+              prof.height[1], 
+              prof.width[1], 
+              nsd[1], 
+              stations.df)
           }
 )
 
@@ -264,9 +291,19 @@ setMethod("plotTrajbackground","cqmaTools",
 setGeneric("plotTrajYear",function(file.vec, path.out, device, map.xlim, map.ylim, map.height, map.width, stations.df){standardGeneric ("plotTrajYear")})
 
 #' @rdname plotTrajYear
-setMethod("plotTrajYear","cqmaTools",
+setMethod("plotTrajYear", 
+          c("character", "character", "character", "numeric", "numeric", 
+            "numeric", "numeric", "data.frame"),
           function(file.vec, path.out, device, map.xlim, map.ylim, map.height, map.width, stations.df){
-            .plotTrajYear(file.vec, path.out, device, map.xlim, map.ylim, map.height, map.width, stations.df)
+            .plotTrajYear(
+              file.vec, 
+              path.out[1], 
+              device[1], 
+              map.xlim[1:2], 
+              map.ylim[1:2], 
+              map.height[1], 
+              map.width[1], 
+              stations.df)
           }
 )
 

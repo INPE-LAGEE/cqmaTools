@@ -3,13 +3,13 @@
 \docType{methods}
 \name{removeHeaders}
 \alias{removeHeaders}
-\alias{removeHeaders,cqmaTools-method}
+\alias{removeHeaders,character,character,numeric-method}
 \alias{removeHeaders-generic}
 \title{Remove headers from hysplit files}
 \usage{
 removeHeaders(file.vec, path.out, skip)
 
-\S4method{removeHeaders}{cqmaTools}(file.vec, path.out, skip)
+\S4method{removeHeaders}{character,character,numeric}(file.vec, path.out, skip)
 }
 \arguments{
 \item{file.vec}{A character vector. The paths to the input files}

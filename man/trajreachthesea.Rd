@@ -3,13 +3,13 @@
 \docType{methods}
 \name{trajreachthesea}
 \alias{trajreachthesea}
-\alias{trajreachthesea,cqmaTools-method}
+\alias{trajreachthesea,list-method}
 \alias{trajreachthesea-generic}
 \title{Check if the trajectories reach the sea}
 \usage{
 trajreachthesea(traj.intersections)
 
-\S4method{trajreachthesea}{cqmaTools}(traj.intersections)
+\S4method{trajreachthesea}{list}(traj.intersections)
 }
 \arguments{
 \item{traj.intersections}{A list made of a character vector and a list. The character vector is the path to each trajectory file while the list contains the first row in the trajectory file which lies over the sea}
