@@ -71,7 +71,7 @@ setMethod(
   "splitRawdata",
   c("character", "character", "character", "character"),
   function(file.in, path.out, colname, keepFlags){
-    .splitRawdata(file.in[1], path.out[1], colname[1], keepFlags)
+    .splitRawdata(file.in, path.out, colname, keepFlags)
   }
 )
 
@@ -95,7 +95,7 @@ setGeneric("runsimulation",function(path.in, backTrajTime, hysplit.exec.path, hy
 setMethod("runsimulation",
           c("character", "numeric", "character", "character", "character", "character"),
           function(path.in, backTrajTime, hysplit.exec.path, hysplit.work.path, path.out, timezone){
-            .runsimulation(path.in[1], backTrajTime[1], hysplit.exec.path[1], hysplit.work.path[1], path.out[1], timezone[1])
+            .runsimulation(path.in, backTrajTime, hysplit.exec.path, hysplit.work.path, path.out, timezone)
           }
 )
 
@@ -116,7 +116,7 @@ setGeneric("removeHeaders",function(file.vec, path.out, skip){standardGeneric ("
 setMethod("removeHeaders",
           c("character", "character", "numeric"),
           function(file.vec, path.out, skip){
-            .removeHeaders(file.vec, path.out[1], skip[1])
+            .removeHeaders(file.vec, path.out, skip)
           }
 )
 
@@ -136,7 +136,7 @@ setGeneric("filterTrajHeight",function(file.vec, above){standardGeneric ("filter
 setMethod("filterTrajHeight",
           c("character", "numeric"),
           function(file.vec, above){
-            .filterTrajHeight(file.vec, above[1])
+            .filterTrajHeight(file.vec, above)
           }
 )
 
@@ -175,7 +175,7 @@ setGeneric("trajreachthesea",function(traj.intersections){standardGeneric ("traj
 setMethod("trajreachthesea", 
           c("list"),
           function(traj.intersections){
-            .trajreachthesea(traj.intersections[1:2])
+            .trajreachthesea(traj.intersections)
           }
 )
 
@@ -195,7 +195,7 @@ setGeneric("trajOutInterpolation",function(traj.intersections, stations.df){stan
 setMethod("trajOutInterpolation", 
           c("list", "data.frame"),
           function(traj.intersections, stations.df){
-            .trajOutInterpolation(traj.intersections[1:2], stations.df)
+            .trajOutInterpolation(traj.intersections, stations.df)
           }
 )
 
@@ -218,7 +218,7 @@ setGeneric("crossdata",function(traj.intersections, stations.df, tolerance.sec, 
 setMethod("crossdata", 
           c("list", "data.frame", "numeric", "character", "numeric"),
           function(traj.intersections, stations.df, tolerance.sec, timezone, searchTranslation){
-            .crossdata(traj.intersections[1:2], stations.df, tolerance.sec[1], timezone[1], searchTranslation[1])
+            .crossdata(traj.intersections, stations.df, tolerance.sec, timezone, searchTranslation)
           }
 )
 
@@ -254,20 +254,20 @@ setMethod("plotTrajbackground",
             "numeric", "numeric", "data.frame"),
           function(file.in, path.out, traj.interpol, traj.intersections, device, map.xlim, map.ylim, map.height, map.width, sec.width, sec.height, prof.height, prof.width, nsd, stations.df){
             .plotTrajbackground(
-              file.in[1], 
-              path.out[1], 
+              file.in, 
+              path.out, 
               traj.interpol, 
-              traj.intersections[1:2], 
-              device[1], 
-              map.xlim[1:2], 
-              map.ylim[1:2], 
-              map.height[1], 
-              map.width[1], 
-              sec.width[1], 
-              sec.height[1], 
-              prof.height[1], 
-              prof.width[1], 
-              nsd[1], 
+              traj.intersections, 
+              device, 
+              map.xlim, 
+              map.ylim, 
+              map.height, 
+              map.width, 
+              sec.width, 
+              sec.height, 
+              prof.height, 
+              prof.width, 
+              nsd, 
               stations.df)
           }
 )
@@ -297,12 +297,12 @@ setMethod("plotTrajYear",
           function(file.vec, path.out, device, map.xlim, map.ylim, map.height, map.width, stations.df){
             .plotTrajYear(
               file.vec, 
-              path.out[1], 
-              device[1], 
-              map.xlim[1:2], 
-              map.ylim[1:2], 
-              map.height[1], 
-              map.width[1], 
+              path.out, 
+              device, 
+              map.xlim, 
+              map.ylim, 
+              map.height, 
+              map.width, 
               stations.df)
           }
 )

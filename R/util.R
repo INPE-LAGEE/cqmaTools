@@ -94,8 +94,9 @@
 #
 # @val A numeric vector of the values to test
 # @vec A numeric vector with the limits of the consecutive intervals. Its length must be greater than 1
-# @return A boolean matrix. The columns represent the intervals (vec) and the rows the values (val).The number of intervals is the number of element in vec minus one
+# @return A boolean matrix. The columns represent the interval's limits (vec) and the rows the values (val). The number of intervals is the number of element in vec minus one
 .inInterval <- function(val, vec){
+  if(is.null(val)){return(matrix(ncol = 2, nrow = 0))}
   int.mat <- matrix(NA, ncol = 2, nrow = length(vec) - 1, byrow = TRUE) # interval matrix
   # build a test matrix
   for(i in 2:length(vec)){
@@ -469,7 +470,7 @@
 #
 # @param file.vec A character vector. The paths to the input files
 # @param limit.in A SpatialLinesDataFrame object which is used to intersect the trajectories.
-# @return A list made of a character vector and 2 lists. The character vector is the path to each trajectory file. The list contains the first row in the trajectory file which lies over the sea
+# @return A list made of a character vector and a list. The character vector is the path to each trajectory file. The list contains the first row in the trajectory file which lies over the sea
 # @examples
 # #shapefile.in <- "/home/alber/Documents/Dropbox/alberLocal/inpe/cqma/data/shp/continentalSouthAmericaLines.shp"
 # #samerica <- readOGR(dsn = dirname(shapefile.in), layer = strsplit(basename(shapefile.in), split = '[.]')[[1]][[1]])
@@ -479,7 +480,8 @@
   #TODO: constants
   wgs84 <-  sp::CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
   cnames <- c("V1", "V2", "year", "month", "day", "hour", "min", "V8", "V9", "lat", "lon", "height", "pressure") # column names of the input file  
-  
+  intersect.dat <- list()
+  if(length(file.vec) == 0){warning("No input files!"); return(list(file.vec, intersect.dat))}
   traj.dat.list <- .files2df(file.vec = file.vec, header = FALSE, skip = 0, cnames = cnames)
   traj.spl.list <- parallel::mclapply(traj.dat.list, .traj2spLines, crs = wgs84) # get SpatialLines from trajectories
   traj.intersect.list <- parallel::mclapply(traj.spl.list, .intersectTraj.intersect, g1 = limit.in, byid = c(FALSE, TRUE)) # intersetion of trajectories with the limit
@@ -554,7 +556,8 @@
   stations.df <- stations.df[order(stations.df$lat),]                           # sort by latitude. This is mandatory
   file.vec <- unlist(traj.intersections[[1]])                                   # The first list contains the paths to trajectory files
   trajrecords.df <- do.call("rbind", traj.intersections[[2]])                   # The second list contains the intersections. That is, the trajectories' first row over the sea. One row per trajectory
-  matchInterval <- .inInterval(val = unlist(trajrecords.df["lat"]), vec = unlist(stations.df["lat"])) # which stations should be used for each trajectory interpolation? . This is the match of trajectories to stations for interpolation
+  matchInterval <- .inInterval(val = unlist(trajrecords.df["lat"]),              # which stations should be used for each trajectory interpolation? . This is the match of trajectories to stations for interpolation 
+                               vec = unlist(stations.df["lat"]))
   keep <- matchInterval[,1] == TRUE | matchInterval[,2] == TRUE
   res <- data.frame(cbind(file.vec, keep), stringsAsFactors = FALSE)
   res["keep"] <- as.logical(res$keep)                                           # R, you motherfuking piece of shit! 
@@ -649,6 +652,8 @@
 .trajreachthesea <- function(traj.intersections){
   file.vec <- unlist(traj.intersections[[1]])
   trajintersect.list <- traj.intersections[[2]]
+  keep <- logical()
+  if(length(file.vec) == 0){warning("No input files!"); return(data.frame(file.vec, keep))}
   # get the files with at least one row, that is, the trajectories which reach to the sea
   keep <- unlist(lapply(trajintersect.list, is.null))
   keep <- !keep
@@ -911,6 +916,7 @@
 # @param stations.df A data.frame with metereological station data. It must contain at least the columns c("name", "lon", "lat")
 # @return A character vector. The paths to the plot files
 .plotTrajbackground <- function(file.in, path.out, traj.interpol, traj.intersections, device, map.xlim, map.ylim, map.height, map.width, sec.width, sec.height, prof.height, prof.width, nsd, stations.df){
+  if(length(traj.interpol) == 0){warning("No interpolations!"); return()}
   lon <- 0; lat <- 0; filename <- 0; height <- 0; concentration <- 0; type <- 0 # avoid notes during package check
   #-----------------------------------
   # read observation data
