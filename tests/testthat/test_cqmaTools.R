@@ -42,14 +42,32 @@ expect_equal(.date2ydec(date.str, timezone = "GMT"), date.dec)
 
 atest <- c(1,1,1,1100,1)
 res <-   c(F,F,F,T,   F)
-expect_equal(.isOutlier(data.vec = atest, nsd=2, use.median = TRUE), res)
+expect_equal(.isOutlier1(data.vec = atest, nsd=2, use.median = TRUE), res)
 atest <- c(1,1,1,-1100,1)
 res <-   c(F,F,F,    T,F)
-expect_equal(.isOutlier(data.vec = atest, nsd=2, use.median = TRUE), res)
-
+expect_equal(.isOutlier1(data.vec = atest, nsd=2, use.median = TRUE), res)
 atest <- c(28, 29, 33, 27, 29, 28)
 res <-   c( F,  F,  T,  F,  F,  F)
-expect_equal(.isOutlier(data.vec = atest, nsd=2, use.median = TRUE), res)
+expect_equal(.isOutlier1(data.vec = atest, nsd=2, use.median = TRUE), res)
+
+
+atest <- c(1,1,1,1100,1)
+res <-   c(F,F,F,T,   F)
+expect_equal(.isOutlier(data.vec = atest, nsd=2, maxfm.ppm = 1.5, use.median = TRUE), res)
+atest <- c(1,1,1,-1100,1)
+res <-   c(F,F,F,    T,F)
+expect_equal(.isOutlier(data.vec = atest, nsd=2, maxfm.ppm = 1.5, use.median = TRUE), res)
+atest <- c(28, 29, 33, 27, 29, 28)
+res <-   c( F,  F,  T,  F,  F,  F)
+expect_equal(.isOutlier(data.vec = atest, nsd=2, maxfm.ppm = 1.5, use.median = TRUE), res)
+atest <- c(30, 35, 30, 35, 30, 30)
+res <-   c( F,  F,  F,  F,  F,  F)
+expect_equal(.isOutlier(data.vec = atest, nsd=2, maxfm.ppm = 5, use.median = TRUE), res)
+atest <- c(30, 35, 30, 35, 30, 30)
+res <-   c( F,  T,  F,  T,  F,  F)
+expect_equal(.isOutlier(data.vec = atest, nsd=2, maxfm.ppm = 1.5, use.median = TRUE), res)
+
+
 
 
 
@@ -61,13 +79,12 @@ expect_equal(.isOutlier(data.vec = atest, nsd=2, use.median = TRUE), res)
 #sd(atest)
 #
 
-interpolvalue <- c(1,1,1,11000000,1,1,1,1,1,10000)
-trProf.df <- as.data.frame(interpolvalue)
-ol <- .removeOutliers(trProf.df, nsd = 2)
-res1 <- c(F,F,F, T,F,F,F,F,F, T) # identify the outliers after doble testing for  median + 2 * sd
-res2 <- c(1,1,1, 1,1,1,1,1,1,1 ) # replace the outliers by the median
+interpolvalue <- c(1,1,1,11000000,1,1,1,1,1,10000, NA)
+ol <- .removeOutliers(data.vec = interpolvalue, nsd = 2, maxfm.ppm = 5)
+res1 <- c(F,F,F, T,F,F,F,F,F, T, T) # identify the outliers after doble testing for  median + 2 * sd
+res2 <- c(1,1,1, 1,1,1,1,1,1,1, 1) # replace the outliers by the median
 expect_equal(as.vector(unlist(ol["outlier"])), res1)
-expect_equal(as.vector(unlist(ol["concentration"])), res2)
+expect_equal(as.vector(unlist(ol["background"])), res2)
 
 
 
@@ -108,5 +125,4 @@ expect_equal(as.vector(unlist(ol["concentration"])), res2)
 #year.dec <- 2015.921918 # 2015-12-03
 #(adate <- .ydec2date(year.dec))
 #formatC(.date2ydec(adate), 10)
-
 

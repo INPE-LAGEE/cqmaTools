@@ -230,6 +230,7 @@ setMethod("crossdata",
 #' @param path.out A character. The path to a folder to store the results
 #' @param traj.interpol A list of numeric. The interpolated values of teh trajectories over the sea
 #' @param traj.intersections A list made of a character vector and a list. The character vector is the path to each trajectory file while the list contains the first row in the trajectory file which lies over the sea
+#' @param traj.plot A vector of character. The file path to trajectories to plot additioanl to those in traj.intersections[[1]]
 #' @param device A character. Image format, i.e. PNG
 #' @param map.xlim A numeric vector. Map's min & max longitude
 #' @param map.ylim A numeric vector. Map's min & max latitude
@@ -245,19 +246,20 @@ setMethod("crossdata",
 #' @docType methods
 #' @aliases plotTrajbackground-generic
 #' @export
-setGeneric("plotTrajbackground",function(file.in, path.out, traj.interpol, traj.intersections, device, map.xlim, map.ylim, map.height, map.width, sec.width, sec.height, prof.height, prof.width, nsd, stations.df){standardGeneric ("plotTrajbackground")})
+setGeneric("plotTrajbackground",function(file.in, path.out, traj.interpol, traj.intersections, traj.plot, device, map.xlim, map.ylim, map.height, map.width, sec.width, sec.height, prof.height, prof.width, nsd, stations.df){standardGeneric ("plotTrajbackground")})
 
 #' @rdname plotTrajbackground
 setMethod("plotTrajbackground", 
           c("character", "character", "list", "list", "character", "numeric", 
             "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
             "numeric", "numeric", "data.frame"),
-          function(file.in, path.out, traj.interpol, traj.intersections, device, map.xlim, map.ylim, map.height, map.width, sec.width, sec.height, prof.height, prof.width, nsd, stations.df){
+          function(file.in, path.out, traj.interpol, traj.intersections, traj.plot, device, map.xlim, map.ylim, map.height, map.width, sec.width, sec.height, prof.height, prof.width, nsd, stations.df){
             .plotTrajbackground(
               file.in, 
               path.out, 
               traj.interpol, 
               traj.intersections, 
+              traj.plot, 
               device, 
               map.xlim, 
               map.ylim, 
@@ -306,4 +308,3 @@ setMethod("plotTrajYear",
               stations.df)
           }
 )
-

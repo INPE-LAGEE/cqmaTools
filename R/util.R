@@ -2,11 +2,90 @@
 
 
 # =======================================================================================
+# DEPRECATED
+# =======================================================================================
+# DEPRECATED: Get the metadata from file trajectories' file names adn add the profile as a colum
+#
+# @param trajfile.list A character vector. The names of trajectory files
+# @return A data frame
+.trajFilenames2metadata1 <- function(trajfile.list){
+  
+  trajfile.df <- as.data.frame(do.call("rbind",                                 # process trajectory filenames' metadata 
+                                       parallel::mclapply(trajfile.list, 
+                                                          function(x){
+                                                            unlist(strsplit(x, split = "_"))
+                                                          })), 
+                               stringsAsFactors = FALSE)
+  colnames(trajfile.df) <- c("site", "year", "month", "day", "hour", "height")  # add column names to trajectory filenames' metadata 
+  trajfile.df["profile"] <- apply(trajfile.df[, c( "site", "year", "month", "day")], 
+                                  MARGIN = 1,  
+                                  function(x){
+                                    paste(unlist(x), collapse = "-")
+                                  })
+  return(trajfile.df)
+}
+# DEPRECATED: Mark the outliers in the given data vector
+#
+# @param data.vec A numeric vector. The data to test
+# @param nsd A numeric. The number of standard deviations 
+# @param nsd A logical. Must the median be used instead of the mean?
+# @return A logical vector
+.isOutlier1 <- function(data.vec, nsd, use.median){
+  dm <- mean(data.vec, na.rm = TRUE)
+  if(use.median){dm <- stats::median(data.vec, na.rm = TRUE)}
+  dsd <- stats::sd(data.vec, na.rm = TRUE)
+  return(data.vec < (dm - nsd * dsd) | data.vec > (dm + nsd * dsd))
+}
+# DEPRECATED: Old (1st) version of Remove outliers
+#
+# @param trProf.df A data.frame. The trajectory data interpolated for a single profile
+# @param nsd A numeric. Number of standard deviation from the central tendency
+# @return A data.frame with an additioanl column called concentration
+.removeOutliers1 <- function(trProf.df, nsd){
+  outlier1 <- .isOutlier(
+    data.vec = as.vector(unlist(trProf.df["interpolvalue"])), 
+    nsd = nsd, 
+    use.median = TRUE)
+  outlier1[is.na(outlier1)] <- TRUE
+  trProf.df["outlier"] <- rep(FALSE, nrow(trProf.df))
+  trProf.df[, "concentration"] <- unlist(trProf.df["interpolvalue"])  
+  trProf.df[outlier1, "concentration"] <- stats::median(unlist(trProf.df["interpolvalue"]))
+  outlier2 <- .isOutlier(
+    data.vec = as.vector(unlist(trProf.df["concentration"])), 
+    nsd = nsd, 
+    use.median = TRUE)
+  outlier2[is.na(outlier2)] <- TRUE
+  trProf.df[outlier2, "concentration"] <- stats::median(unlist(trProf.df["concentration"]), na.rm = TRUE)
+  trProf.df["outlier"] <- outlier1 | outlier2
+  trProf.df[outlier1 | outlier2, "concentration"] <- stats::median(unlist(trProf.df["concentration"]), na.rm = TRUE)
+  return(trProf.df)
+}
+# =======================================================================================
 # PACKAGE UTIL 
 # =======================================================================================
 
 
+# Cast factor to numeric (R is still a motherfucking piece of shit!)
+#
+# @param x A factor
+# @return A numeric vector
+.as.numeric.factor <- function(x){as.numeric(levels(x))[x]}
 
+
+# Given a list of data.frames, this function adds the list names as columns on each of the data.frames
+#
+# @param df.list A list of data.frames
+# @return A list of data frames
+.listname2data.frame <- function(df.list, colname){
+  res <- parallel::mclapply(1:length(df.list), 
+                            function(x, df.list){
+                              df.list[[x]][colname] <- names(df.list)[x]
+                              return(df.list[[x]])
+                            }, 
+                            df.list = df.list
+  )
+  return(res)
+}
 
 
 
@@ -44,7 +123,8 @@
 # @param cnames A vector character. The names of the columns
 # @return A data.frame
 .file2df <- function(file.in, header, skip, cnames){
-  file.dat <- utils::read.table(file = file.in, sep = "", header = header, skip = skip)
+  file.dat <- utils::read.table(file = file.in, sep = "", header = header, 
+                                skip = skip, stringsAsFactors = FALSE)
   if(!header){colnames(file.dat) <- cnames}
   return(file.dat)
 }
@@ -262,7 +342,7 @@
 .runsimulation <- function(path.in, backTrajTime, hysplit.exec.path, hysplit.work.path, path.out, timezone){
   exec.file <- file.path(hysplit.exec.path, "hyts_std", fsep = .Platform$file.sep)
   #if(get_os() == "windows"){
-    #exec.file <- file.path(hysplit.exec.path, "hyts_std.exe", fsep = .Platform$file.sep)
+  #exec.file <- file.path(hysplit.exec.path, "hyts_std.exe", fsep = .Platform$file.sep)
   #}
   if(!file.exists(exec.file)){
     stop("ERROR: Hysplit's executables not found")
@@ -554,14 +634,19 @@
 # @return A data.frame with one row for each file and 2 columns: The trajectories' path and a boolean indicating if meet the test
 .trajOutInterpolation <- function(traj.intersections, stations.df){
   stations.df <- stations.df[order(stations.df$lat),]                           # sort by latitude. This is mandatory
-  file.vec <- unlist(traj.intersections[[1]])                                   # The first list contains the paths to trajectory files
+  invalid <- unlist(lapply(traj.intersections[[2]], is.null))                   # mark invalid
+  file.vec <- unlist(traj.intersections[[1]])[!invalid]                         # The first list contains the paths to trajectory files
   trajrecords.df <- do.call("rbind", traj.intersections[[2]])                   # The second list contains the intersections. That is, the trajectories' first row over the sea. One row per trajectory
-  matchInterval <- .inInterval(val = unlist(trajrecords.df["lat"]),              # which stations should be used for each trajectory interpolation? . This is the match of trajectories to stations for interpolation 
+  matchInterval <- .inInterval(val = unlist(trajrecords.df["lat"]),             # which stations should be used for each trajectory interpolation? . This is the match of trajectories to stations for interpolation 
                                vec = unlist(stations.df["lat"]))
-  keep <- matchInterval[,1] == TRUE | matchInterval[,2] == TRUE
-  res <- data.frame(cbind(file.vec, keep), stringsAsFactors = FALSE)
-  res["keep"] <- as.logical(res$keep)                                           # R, you motherfuking piece of shit! 
-  rownames(res) <- NULL
+  keep <- matchInterval[,1] == TRUE | matchInterval[,2] == TRUE                 
+  pres <- cbind(file.vec, as.vector(keep))                                      # who passes the test?
+  # match to the original files
+  ti1.df <- as.data.frame(traj.intersections[[1]])
+  colnames(ti1.df) <- "file.vec"
+  res <- merge(ti1.df, pres, by = "file.vec", all = TRUE)
+  colnames(res) <- c("file.vec", "keep")
+  res["keep"] <- as.logical(res$keep)                                           # R, you motherfucking piece of shit!     
   return(res)
 }
 
@@ -596,7 +681,8 @@
   # NOTE2: it assumes a single row on each record. Otherwise the following calculations are WRONG
   trajfiles <- unlist(traj.intersections[[1]])                                  # The first list contains the paths to trajectory files
   trajrecords.df <- do.call("rbind", traj.intersections[[2]])                   # The second list contains the intersections. That is, the trajectories' first row over the sea. One row per trajectory
-  matchInterval <- .inInterval(val = unlist(trajrecords.df["lat"]), vec = unlist(stations.df["lat"])) # which stations should be used for each trajectory interpolation? . This is the match of trajectories to stations for interpolation
+  matchInterval <- .inInterval(val = unlist(trajrecords.df["lat"]),             # which stations should be used for each trajectory interpolation? . This is the match of trajectories to stations for interpolation
+                               vec = unlist(stations.df["lat"])) 
   out <- matchInterval[,1] == FALSE & matchInterval[,2] == FALSE
   if(sum(out) > 0){
     warning("Trajectories falling out of interpolation zone:", sum(out), " \n", paste(trajfiles[out], collapse = " \n"))
@@ -609,7 +695,11 @@
     station.dat.list[[i]] <- station.dat
   }
   # add a column with normal dates intead of decimal year dates
-  station.dat.list <- parallel::mclapply(station.dat.list, function(x){x["date"] <- unlist(lapply(unlist(x["datedec"]), .ydec2date)); return(as.data.frame(x))}) # stations' data
+  station.dat.list <- parallel::mclapply(station.dat.list, 
+                                         function(x){
+                                           x["date"] <- unlist(lapply(unlist(x["datedec"]), .ydec2date)); 
+                                           return(as.data.frame(x))
+                                         }) # stations' data
   # do the interpolation
   interpolation.res <- lapply(
     1:length(trajfiles), 
@@ -694,12 +784,37 @@
 # @param data.vec A numeric vector. The data to test
 # @param nsd A numeric. The number of standard deviations 
 # @param nsd A logical. Must the median be used instead of the mean?
+# @param maxfm.ppm A numeric. Maximum number of units away from the central tendency measure
 # @return A logical vector
-.isOutlier <- function(data.vec, nsd, use.median){
+.isOutlier <- function(data.vec, nsd, maxfm.ppm, use.median){
   dm <- mean(data.vec, na.rm = TRUE)
   if(use.median){dm <- stats::median(data.vec, na.rm = TRUE)}
   dsd <- stats::sd(data.vec, na.rm = TRUE)
-  return(data.vec < (dm - nsd * dsd) | data.vec > (dm + nsd * dsd))
+  testsd <- data.vec < (dm - nsd * dsd) | data.vec > (dm + nsd * dsd)
+  testlim <- data.vec < (dm - maxfm.ppm) | data.vec > (dm + maxfm.ppm)
+  return(testsd | testlim)
+}
+
+
+
+
+
+# Replace outliers of the interpolated values from trajectories from a single profile with the median
+#
+# @param data.vec A numeric vector. The trajectory data interpolated for a single profile
+# @param nsd A numeric. Number of standard deviation from the central tendency
+# @param maxfm.ppm A numeric. Maximum number of units away from the central tendency measure
+# @return A data.frame with two columns: The new values (background) and booleans indicating those values replaced
+.removeOutliers <- function(data.vec, nsd, maxfm.ppm){
+  outlier <- .isOutlier(
+    data.vec = data.vec, 
+    nsd = nsd, 
+    maxfm.ppm = maxfm.ppm, 
+    use.median = TRUE)
+  outlier[is.na(outlier)] <- TRUE
+  background <- data.vec
+  background[outlier] <- stats::median(data.vec[!outlier], na.rm = TRUE)
+  return(data.frame(background, outlier))
 }
 
 
@@ -708,48 +823,15 @@
 #
 # @param trajfile.list A character vector. The names of trajectory files
 # @return A data frame
-.trajFilenames2metadata <- function(trajfile.list){
-  
-  trajfile.df <- as.data.frame(do.call("rbind",                                 # process trajectory filenames' metadata 
-                                       parallel::mclapply(trajfile.list, 
-                                                          function(x){
-                                                            unlist(strsplit(x, split = "_"))
-                                                          })), 
-                               stringsAsFactors = FALSE)
-  colnames(trajfile.df) <- c("site", "year", "month", "day", "hour", "height")  # add column names to trajectory filenames' metadata 
-  trajfile.df["profile"] <- apply(trajfile.df[, c( "site", "year", "month", "day")], 
-                                  MARGIN = 1,  
-                                  function(x){
-                                    paste(unlist(x), collapse = "-")
-                                  })
-  return(trajfile.df)
-}
-
-
-
-# Remove outliers of the interpolated values from trajectories from a single profile
-#
-# @param trProf.df A data.frame. The trajectory data interpolated for a single profile
-# @param nsd A numeric. Number of standard deviation from the central tendency
-# @return A data.frame with an additioanl column called concentration
-.removeOutliers <- function(trProf.df, nsd){
-  outlier1 <- .isOutlier(
-    data.vec = as.vector(unlist(trProf.df["interpolvalue"])), 
-    nsd = nsd, 
-    use.median = TRUE)
-  outlier1[is.na(outlier1)] <- TRUE
-  trProf.df["outlier"] <- rep(FALSE, nrow(trProf.df))
-  trProf.df[, "concentration"] <- unlist(trProf.df["interpolvalue"])  
-  trProf.df[outlier1, "concentration"] <- stats::median(unlist(trProf.df["interpolvalue"]))
-  outlier2 <- .isOutlier(
-    data.vec = as.vector(unlist(trProf.df["concentration"])), 
-    nsd = nsd, 
-    use.median = TRUE)
-  outlier2[is.na(outlier2)] <- TRUE
-  trProf.df[outlier2, "concentration"] <- stats::median(unlist(trProf.df["concentration"]), na.rm = TRUE)
-  trProf.df["outlier"] <- outlier1 | outlier2
-  trProf.df[outlier1 | outlier2, "concentration"] <- stats::median(unlist(trProf.df["concentration"]), na.rm = TRUE)
-  return(trProf.df)
+.trajFilenames2metadata <- function(file.vec){
+  bn <- basename(file.vec) 
+  res <- as.data.frame(
+    do.call("rbind", 
+            parallel::mclapply(bn, 
+                               function(x){unlist(strsplit(x, split = "_"))})
+    ))
+  colnames(res) <- c("site", "year", "month", "day", "hour", "height")          # add column names to trajectory filenames' metadata 
+  return(res)  
 }
 
 
@@ -897,12 +979,41 @@
 
 
 
+# Add profile to trajectory data
+#
+# @param traj.dat.list A list of data frames. Each data.frame is a trajectory
+# @return A list of data frames. Each data frame is a trajectoryy with additional data
+.addProfile2Trajectories <- function(traj.dat.list){
+  traj.dat.list <- .listname2data.frame(df.list = traj.dat.list,                # add file name as a column to each data.frame
+                                        colname = "filename")
+  traj.dat <- do.call("rbind", traj.dat.list)                                   # collapse trajectory data into a single data.frame
+  traj.dat["profile"] <- .filename2profile(unlist(traj.dat["filename"]))         # add profile as new column to trajectory data
+  return(split(traj.dat, traj.dat$profile))                                     # split trajectory data.frame by profile. One data.frame per profile
+}
+
+
+
+# Build a profile form a vector of trajectory file names
+#
+# @param file.vec A vector of character
+# @return A character vector
+.filename2profile <- function(file.vec){
+  bn <- basename(file.vec)
+  return(as.vector(sapply(bn, function(x){
+    paste(unlist(strsplit(x, split = "_"))[1:4], collapse = "-")
+  })))
+}
+
+
+
 # Plot the input data into map, section, and profile graphs. These plots are stored in disk
 #
 # @param file.in A character. The path to a filtered observations file or flag filtered raw data
 # @param path.out A character. The path to a folder to store the results
+# @param traj.plot A vector of character. File paths to additional trajectories to inlude in the plots
 # @param traj.interpol A list of numeric. The interpolated values of teh trajectories over the sea
 # @param traj.intersections A list made of a character vector and a list. The character vector is the path to each trajectory file while the list contains the first row in the trajectory file which lies over the sea
+# @param traj.plot A vector of character. The file path to trajectories to plot additioanl to those in traj.intersections[[1]]
 # @param device A character. Image format, i.e. PNG
 # @param map.xlim A numeric vector. Map's min & max longitude
 # @param map.ylim A numeric vector. Map's min & max latitude
@@ -915,80 +1026,61 @@
 # @param nsd A numeric. Number of standard deviations to use to filter the interpolated data
 # @param stations.df A data.frame with metereological station data. It must contain at least the columns c("name", "lon", "lat")
 # @return A character vector. The paths to the plot files
-.plotTrajbackground <- function(file.in, path.out, traj.interpol, traj.intersections, device, map.xlim, map.ylim, map.height, map.width, sec.width, sec.height, prof.height, prof.width, nsd, stations.df){
+.plotTrajbackground <- function(file.in, path.out, traj.interpol, 
+                                traj.intersections, traj.plot, device, map.xlim, 
+                                map.ylim, map.height, map.width, sec.width, 
+                                sec.height, prof.height, prof.width, nsd, 
+                                maxfm.ppm, stations.df){
   if(length(traj.interpol) == 0){warning("No interpolations!"); return()}
   lon <- 0; lat <- 0; filename <- 0; height <- 0; concentration <- 0; type <- 0 # avoid notes during package check
+  profil <- 0;file.vec <- 0;  sheight <- 0; profile <- 0
   #-----------------------------------
-  # read observation data
+  # observation data
   #-----------------------------------
   obsCnames <- c("site", "lat", "lon", "height", "year", "month", "day", "hour",# filtered observation column names
                  "min", "flask", "concentration")  
-  file.dat <- .file2df(file.in = file.in, header = FALSE,                       # flag filtered raw data
-                       skip = 0, cnames = obsCnames) 
+  raw.df <- .file2df(file.in = file.in, header = FALSE,                     # flag filtered raw data
+                     skip = 0, cnames = obsCnames) 
+  raw.df["profile"] <- apply(raw.df[, c( "site", "year", "month", "day")], # add profile column to raw data
+                             MARGIN = 1, 
+                             function(x){
+                               gsub(" ", "0", paste(unlist(x), collapse = "-"))
+                             })
+  #-----------------------------------
+  # trajectory data
+  #-----------------------------------
   trajCnames <- c("V1", "V2", "year", "month", "day", "hour", "min",            # column names of the trajectory files
                   "V8", "V9", "lat", "lon", "height", "pressure") 
-  traj.dat.list <- .files2df(file.vec = traj.intersections[[1]],                # read all the trajectory files into a list of data.frames 
+  traj.file.vec <- c(traj.intersections[[1]], traj.plot)                        # all the trajectory file names 
+  traj.file.vec <- traj.file.vec[!is.na(traj.file.vec)]
+  traj.dat.list <- .files2df(file.vec = traj.intersections[[1]],                # read the trajectory files into a list of data.frames 
                              header = FALSE, skip = 0, cnames = trajCnames)
-  traj.filenames <- names(traj.dat.list)                                        # do not move!
-  traj.dat.list <- parallel::mclapply(                                          # match intersections to trajectories
-    1:length(traj.dat.list), 
-    function(x, traj.dat.list, intersect.list){
-      onSea <- rep(FALSE, times = nrow(traj.dat.list[[x]]))
-      onSea[as.numeric(rownames(intersect.list[[x]])[1])] <- TRUE
-      return(cbind(traj.dat.list[[x]], onSea))
-    }, 
-    traj.dat.list = traj.dat.list, 
-    intersect.list = traj.intersections[[2]]
-  )
-  names(traj.dat.list) <- traj.filenames
-  #-----------------------------------
-  # process trajectory data
-  #-----------------------------------
-  traj.dat.list <- parallel::mclapply(1:length(traj.dat.list),                  # add file name as a column to each data.frame
-                                      function(x, dat.list){
-                                        dat.list[[x]]["filename"] <- names(dat.list)[x]
-                                        return(dat.list[[x]])
-                                      }, 
-                                      dat.list = traj.dat.list)
-  traj.dat <- do.call("rbind", traj.dat.list)                                   # collapse trajectory data into a single data.frame
-  traj.dat["profile"] <- unlist(parallel::mclapply(unlist(traj.dat["filename"]),# add profile as new column to trajectory data
-                                                   function(x){
-                                                     paste(unlist(strsplit(x, split = "_"))[1:4], collapse = "-")
-                                                   }))
-  traj.prof.list <- split(traj.dat, traj.dat$profile)                           # split trajectory data.frame by profile. One data.frame per profile
-  #-----------------------------------
-  # process observations. Raw data input
-  #-----------------------------------
-  file.dat["profile"] <- apply(file.dat[, c( "site", "year", "month", "day")],  # add profile column to raw data
-                               MARGIN = 1, 
-                               function(x){
-                                 gsub(" ", "0", paste(unlist(x), collapse = "-"))
-                               })
-  dataprofile.list <- split(file.dat, file.dat$profile)                         # split into a list of data frames. One per profile
+  traj.dat.list <- .listname2data.frame(df.list = traj.dat.list,                # add file name as column
+                                        colname = "file.vec")
+  traj.dat.df <- do.call("rbind", traj.dat.list)                                # collapse to a single data.frame
+  traj.dat.df["profile"] <- .filename2profile(unlist(traj.dat.df["file.vec"]))  # add profile column
   #-----------------------------------
   # process interpolated data
   #-----------------------------------
-  trajfile.df <- .trajFilenames2metadata(traj.filenames)                        # get profiles from trajectory file names
-  trajfile.df["interpolvalue"] <- unlist(traj.interpol)                         # add interpolated data to profile
-  interpol.list <- split(trajfile.df, trajfile.df$profile)                      # list of data.frame. One per profile
-  interpol.list <- parallel::mclapply(interpol.list,                            # cast height from character to numeric
-                                      function(x){
-                                        x[,"height"] <- as.numeric(x[,"height"])
-                                        return(x)
-                                      })
-  interpol.list <- parallel::mclapply(interpol.list, .removeOutliers, nsd = nsd) # remove outliers
+  interpol.df <- data.frame(traj.intersections[[1]], unlist(traj.interpol), 
+                            stringsAsFactors = FALSE)
+  names(interpol.df) <- c("file.vec", "interpolated")
+  interpol.df["file.vec"] <- basename(as.vector(unlist(interpol.df["file.vec"])))
+  interpol.df["profile"] <- .filename2profile(unlist(interpol.df["file.vec"]))  # add profile column
+  interpol.df <- cbind(interpol.df, .trajFilenames2metadata(unlist(interpol.df["file.vec"])))
+  interpol.df["height"] <- .as.numeric.factor(interpol.df$height)
   #-----------------------------------
-  # relate data
+  # process intersections
   #-----------------------------------
-  traj2datamatch <- match(names(interpol.list), names(dataprofile.list))        # match profiles from raw data and trajectories
-  traj2datamatch <- traj2datamatch[!is.na(traj2datamatch)]                      # get rid of NAs
-  interpol.list <- parallel::mclapply(1:length(interpol.list),                  # complete the number of interpolation to match the profile
-                                      function(x, interpol.list, dataprofile.list){
-                                        .matchData2Interpolation(
-                                          trProf.df = interpol.list[[x]], 
-                                          data.df = dataprofile.list[[traj2datamatch[x]]])
-                                      }, interpol.list = interpol.list, 
-                                      dataprofile.list = dataprofile.list)
+  intersec.df <- cbind(basename(traj.intersections[[1]]), 
+                  do.call("rbind", traj.intersections[[2]]))
+  intersec.df["filerow"] <- as.numeric(rownames(intersec.df))
+  colnames(intersec.df) <- c("file.vec", "V1", "V2", "syear", "smonth",         # rename columns
+                             "sday", "shour", "smin", "V8", "V9", 
+                             "slat", "slon", "sheight", 
+                             "spressure", "filerow")
+  intersec.df["syear"] <- unlist(intersec.df["syear"]) + 2000
+  intersec.df["profile"] <- .filename2profile(as.vector(unlist(intersec.df["file.vec"])))  # add profile column
   #-----------------------------------
   # base map
   #-----------------------------------
@@ -996,87 +1088,113 @@
   #-----------------------------------
   # plot
   #-----------------------------------
-  filenames <- vector(mode = "character", length = 0)
-  profile.dat.list <- list()
-  for(i in 1:length(interpol.list)){
-    if(sum(is.na(interpol.list[[i]]["concentration"])) == 0){
-      tprof.df <- interpol.list[[i]][,c("concentration", "height", "interpolvalue")] # profile of interpolated values from trajectories
-      dprof.df <- dataprofile.list[[traj2datamatch[i]]][,c("concentration", "height")] # profile of raw data
-      dtraj.df <- traj.prof.list[[i]][, c("lon", "lat", "height", "filename", "profile", "onSea")] # trajectories of the same profile
-      # join the observed, interpolated, and interpolated filtered data
-      iftprof.df <- tprof.df[, c("concentration", "height")]
-      iftprof.df["type"] <- "background"
-      iptprof.df <- tprof.df[, c("interpolvalue", "height")]
-      iptprof.df["type"] <- "interpolated"
-      colnames(iptprof.df)[1] <- "concentration"
-      dprof.df["type"] <- "observed"
-      profile.dat <- rbind(dprof.df, iftprof.df, iptprof.df)
-      profile.dat <- profile.dat[order(profile.dat$height),] 
-      # collect the numeric results
-      profile.dat.list[[i]] <- profile.dat
-      profile.dat.list[[i]]["profile"] <- dtraj.df[1, "profile"]
-      profile.dat.list[[i]]["date"] <- substr(profile.dat.list[[i]]$profile, start = 5, stop = 14)
-      # plot 1 - map
-      plot.map <- file.path(path.out, paste(dtraj.df[1, "profile"], "_map.", device, sep = ""), fsep = .Platform$file.sep)
-      m <- basemap + ggplot2::geom_path(data = dtraj.df, mapping = ggplot2::aes(x = lon, y = lat, group = filename, colour = filename)) + 
-        ggplot2::geom_point(data = dtraj.df[dtraj.df$onSea, ], mapping = ggplot2::aes(x = lon, y = lat, group = filename, colour = filename)) + 
-        ggplot2::geom_point(data = dtraj.df[1, c("lon", "lat")], mapping = ggplot2::aes(x = lon, y = lat, group = NA), shape = 10, size = 3)
-      ggplot2::ggsave(filename = plot.map, plot = m, device = device, width = map.width, height = map.height)
-      # plot 2 - cross sections
-      plot.lonsec <- file.path(path.out, paste(dtraj.df[1, "profile"], "_sectionlon.", device, sep = ""), fsep = .Platform$file.sep)
-      plot.latsec <- file.path(path.out, paste(dtraj.df[1, "profile"], "_sectionlat.", device, sep = ""), fsep = .Platform$file.sep)
-      slon <- ggplot2::ggplot(data = dtraj.df[, c("lon", "height", "filename", "onSea")], 
-                              mapping = ggplot2::aes(x = lon, y = height, group = filename, colour = filename)) +
-        ggplot2::geom_path() + ggplot2::xlim(map.xlim) + 
-        ggplot2::labs(x = "longitude", y = "height", color = "trajectory") + 
-        ggplot2::geom_point(data = dtraj.df[dtraj.df$onSea, ], mapping = ggplot2::aes(x = lon, y = height, group = filename, colour = filename)) + 
-        ggplot2::geom_vline(xintercept = dtraj.df[1, "lon"], linetype="dotted")
-      slat <- ggplot2::ggplot(data = dtraj.df[, c("lat", "height", "filename", "onSea")], 
-                              mapping = ggplot2::aes(x = lat, y = height, group = filename, colour = filename)) +
-        ggplot2::geom_path() + ggplot2::xlim(map.ylim) + 
-        ggplot2::labs(x = "latitude", y = "height", color = "trajectory") + 
-        ggplot2::geom_point(data = dtraj.df[dtraj.df$onSea, ], mapping = ggplot2::aes(x = lat, y = height, group = filename, colour = filename)) + 
-        ggplot2::geom_vline(xintercept = dtraj.df[1, "lat"], linetype="dotted")
-      ggplot2::ggsave(filename = plot.lonsec, plot = slon, device = device, width = sec.width, height = sec.height)
-      ggplot2::ggsave(filename = plot.latsec, plot = slat, device = device, width = sec.width, height = sec.height)
-      # plot 3 - profile
-      plot.profile <- file.path(path.out, paste(dtraj.df[1, "profile"], "_profile.", device, sep = ""), fsep = .Platform$file.sep)    
-      p <- ggplot2::ggplot(data = profile.dat, mapping = ggplot2::aes(x = concentration, y = height, 
-                                                                      group = type, colour = type)) + 
-        ggplot2::geom_path() +
-        ggplot2::geom_point() + 
-        ggplot2::geom_path()
-      ggplot2::ggsave(filename = plot.profile, plot = p, device = device, 
-                      width = prof.width, height = prof.height)
-      # output file names
-      filenames <- append(filenames, c(plot.map, plot.lonsec, plot.latsec, plot.profile))
-    }
+  profile.vec <- unique(unlist(interpol.df["profile"]))                         # each profile to process below
+  filenames <- vector(mode = "character", length = 0)                           # files created on this function
+  profile.all <- data.frame()                                                   # keep the profile data  
+  for(prof in profile.vec){
+    #-----------------------------------
+    # merge data
+    #-----------------------------------
+    prof.obs <- raw.df[raw.df$profile == prof, ]                                # observed data
+    prof.int <- interpol.df[interpol.df$profile == prof, ]                      # interpolated data
+    prof.isec <- intersec.df[intersec.df$profile == prof, ]                       # trajectory data of the intersections
+    prof.traj <- traj.dat.df[traj.dat.df$profile == prof, ]                     # all the trajectories of this profile
+    # complete interpolation to match the observations
+    prof.obs <- merge(x = prof.obs, 
+                      y = prof.int[, c("file.vec", "interpolated", "height")], 
+                      by = "height", all.x = TRUE)
+    colnames(prof.obs)[colnames(prof.obs) == "concentration"] <- "observed"
+    back.df <- .removeOutliers(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
+                    nsd = nsd, maxfm.ppm = maxfm.ppm)
+    prof.obs <- cbind(prof.obs, back.df)
+    prof.obs <- merge(x = prof.obs, y = subset(prof.isec, select = -profile ), 
+                      by = "file.vec", all.x = TRUE)
+    profile.all <- rbind(profile.all, prof.obs)
+    # plot 1 - map
+    file.map <- file.path(path.out, paste(prof, "_map.", device, sep = ""),  # name of the file
+                          fsep = .Platform$file.sep)
+    m <- basemap +                                                              # get the base map
+      ggplot2::geom_path(data = prof.traj,                                      # add the trajectories
+                         mapping = ggplot2::aes(x = lon, y = lat, 
+                                                group = file.vec, 
+                                                colour = file.vec)) + 
+      ggplot2::geom_point(data = prof.traj[1, c("lon", "lat")],                 # add the profile point
+                          mapping = ggplot2::aes(x = lon, y = lat, group = NA), 
+                          shape = 10, size = 3) + 
+      ggplot2::geom_point(data = prof.isec,                                     # add the intersection points
+                          mapping = ggplot2::aes(x = slon, y = slat, 
+                                                 group = file.vec, 
+                                                 colour = file.vec))
+    ggplot2::ggsave(filename = file.map, plot = m, device = device, 
+                    width = map.width, height = map.height)                     # save the map to a file
+    # plot 2 - cross sections
+    file.lonsec <- file.path(path.out, paste(prof, "_sectionlon.", device, sep = ""), fsep = .Platform$file.sep)
+    file.latsec <- file.path(path.out, paste(prof, "_sectionlat.", device, sep = ""), fsep = .Platform$file.sep)
+    slon <- ggplot2::ggplot(data = prof.traj, 
+                            mapping = ggplot2::aes(x = lon, y = height, 
+                                                   group = file.vec, 
+                                                   colour = file.vec)) +
+      ggplot2::geom_path() + ggplot2::xlim(map.xlim) +                          # add the trajectories
+      ggplot2::labs(x = "longitude", y = "height", color = "trajectory") + 
+      ggplot2::geom_point(data = prof.isec,                                     # add the intersections
+                          mapping = ggplot2::aes(x = slon, y = sheight, 
+                                                 group = file.vec, 
+                                                 colour = file.vec)) + 
+      ggplot2::geom_vline(xintercept = prof.traj[1, "lon"], linetype = "dotted")# add the flight
+    slat <- ggplot2::ggplot(data = prof.traj, 
+                            mapping = ggplot2::aes(x = lat, y = height, 
+                                                   group = file.vec, 
+                                                   colour = file.vec)) +
+      ggplot2::geom_path() + ggplot2::xlim(map.ylim) +                          # add the trajectories
+      ggplot2::labs(x = "latitude", y = "height", color = "trajectory") + 
+      ggplot2::geom_point(data = prof.isec,                                     # add the intersections
+                          mapping = ggplot2::aes(x = slat, y = sheight, 
+                                                 group = file.vec, 
+                                                 colour = file.vec)) + 
+      ggplot2::geom_vline(xintercept = prof.traj[1, "lat"], linetype = "dotted")# add the flight
+    ggplot2::ggsave(filename = file.lonsec, plot = slon, device = device, width = sec.width, height = sec.height)
+    ggplot2::ggsave(filename = file.latsec, plot = slat, device = device, width = sec.width, height = sec.height)
+    # plot 3 - profile    
+    file.profile <- file.path(path.out, paste(prof, "_profile.", device, sep = ""), fsep = .Platform$file.sep)    
+    prof.df <- prof.obs[, c("file.vec", "observed", "interpolated", "background", "height")]
+    prof.df["type"] <- ""
+    prof.obs.df <- prof.df[, c("file.vec", "observed", "height", "type")]
+    prof.int.df <- prof.df[, c("file.vec", "interpolated", "height", "type")]
+    prof.bac.df <- prof.df[, c("file.vec", "background", "height", "type")]
+    prof.obs.df["type"] <- "observed"
+    prof.int.df["type"] <- "interpolated"
+    prof.bac.df["type"] <- "background"
+    colnames(prof.obs.df)[colnames(prof.obs.df) == "observed"] <- "concentration"
+    colnames(prof.int.df)[colnames(prof.int.df) == "interpolated"] <- "concentration"
+    colnames(prof.bac.df)[colnames(prof.bac.df) == "background"] <- "concentration"
+    prof.df <- rbind(prof.obs.df, prof.int.df, prof.bac.df)
+    prof.df <- prof.df[with(prof.df, order( type, -height)), ]                  # sort
+    p <- ggplot2::ggplot(data = prof.df, 
+                         mapping = ggplot2::aes(x = concentration, 
+                                                y = height, group = type, 
+                                                colour = type)) + 
+      ggplot2::geom_path() +
+      ggplot2::geom_point()
+    ggplot2::ggsave(filename = file.profile, plot = p, device = device, 
+                    width = prof.width, height = prof.height)
+    # output file names
+    filenames <- append(filenames, c(file.map, file.lonsec, file.latsec, 
+                                     file.profile))
   }
   # write profile data
-  csv.profile <- file.path(path.out, paste(basename(file.in), "_results.txt", sep = ""), fsep = .Platform$file.sep)    
-  profilesresult.df <- do.call("rbind", profile.dat.list)
-  profilesresult.df["split"] <- do.call(paste, c(profilesresult.df[c("profile", "type")], sep="_"))
-  profres.list <- split(profilesresult.df, profilesresult.df$profile)
-  profres.split.list <- lapply(profres.list, 
-                               function(x){
-                                 x.list <- split(x, f = x$split)
-                                 for(j in 1:length(x.list)){
-                                   l <- x.list[[j]]
-                                   colnames(l)[colnames(l) == "concentration"] <- unique(l["type"])[1] # rename the concentration column
-                                   x.list[[j]] <- l
-                                 }
-                                 dropcols <- c("type", "profile", "date", "split")
-                                 df <- x.list[[1]]
-                                 for(j in 2:length(x.list)){
-                                   df <- merge(df, x.list[[j]][ , !(names(x.list[[j]]) %in% dropcols)], by = "height", all = TRUE)
-                                 }
-                                 return(df[,c("profile", "date", "height", "observed", "background", "interpolated")])
-                               }
-  )
-  profile.df <- do.call("rbind", profres.split.list)                            # collapse list into data.frame
-  profile.df <- profile.df[with(profile.df, order( profile, -height)), ]
-  rownames(profile.df) <- NULL
-  utils::write.table(profile.df, file = csv.profile)
-  filenames <- append(filenames, csv.profile)
+  file.profile <- file.path(path.out, paste(basename(file.in), "_results.txt", sep = ""), fsep = .Platform$file.sep)    
+  profile.all <- profile.all[, c("profile", "file.vec", "site", 
+                                 "lon", "lat", "height", 
+                                 "year", "month", "day", "hour", "min", 
+                                 "flask", 
+                                 "observed", "background", "interpolated", "outlier", 
+                                 "filerow", "V1", "V2", 
+                                 "syear", "smonth", "sday", "shour", "smin", 
+                                 "V8", "V9", 
+                                 "slon", "slat", "sheight", "spressure")]
+  profile.all <- profile.all[with(profile.all, order( profile, -height)), ]     # order
+  rownames(profile.all) <- NULL
+  utils::write.table(profile.all, file = file.profile)
+  filenames <- append(filenames, file.profile)
   return(filenames)
 }

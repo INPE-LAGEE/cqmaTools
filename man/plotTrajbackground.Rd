@@ -7,15 +7,15 @@
 \alias{plotTrajbackground-generic}
 \title{Plot the input data into map, section, and profile graphs. These plots are stored in disk}
 \usage{
-plotTrajbackground(file.in, path.out, traj.interpol, traj.intersections, device,
-  map.xlim, map.ylim, map.height, map.width, sec.width, sec.height, prof.height,
-  prof.width, nsd, stations.df)
+plotTrajbackground(file.in, path.out, traj.interpol, traj.intersections,
+  traj.plot, device, map.xlim, map.ylim, map.height, map.width, sec.width,
+  sec.height, prof.height, prof.width, nsd, stations.df)
 
 
   \S4method{plotTrajbackground}{character,character,list,list,character,numeric,numeric,numeric,numeric,numeric,numeric,numeric,numeric,numeric,data.frame}(file.in,
-  path.out, traj.interpol, traj.intersections, device, map.xlim, map.ylim,
-  map.height, map.width, sec.width, sec.height, prof.height, prof.width, nsd,
-  stations.df)
+  path.out, traj.interpol, traj.intersections, traj.plot, device, map.xlim,
+  map.ylim, map.height, map.width, sec.width, sec.height, prof.height,
+  prof.width, nsd, stations.df)
 }
 \arguments{
 \item{file.in}{A character. The path to a filtered observations file or flag filtered raw data}
@@ -25,6 +25,8 @@ plotTrajbackground(file.in, path.out, traj.interpol, traj.intersections, device,
 \item{traj.interpol}{A list of numeric. The interpolated values of teh trajectories over the sea}
 
 \item{traj.intersections}{A list made of a character vector and a list. The character vector is the path to each trajectory file while the list contains the first row in the trajectory file which lies over the sea}
+
+\item{traj.plot}{A vector of character. The file path to trajectories to plot additioanl to those in traj.intersections[[1]]}
 
 \item{device}{A character. Image format, i.e. PNG}
 
