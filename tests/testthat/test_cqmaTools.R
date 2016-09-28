@@ -88,6 +88,16 @@ expect_equal(as.vector(unlist(ol["background"])), res2)
 
 
 
+x <- c(1,2,3,4,5)
+y <- c(6,7,8,9,10)
+xy.df <- as.data.frame(cbind(x, y))
+minx = 3
+maxx = NA
+miny = NA
+maxy = NA
+res <- c(F,F,T,T,T)
+expect_equal(.inbound(xy.df, minx = minx, maxx = maxx, miny = miny, maxy = maxy), res)
+
 
 # TODO: check function inversibility
 #date.dec <- 2015.916438

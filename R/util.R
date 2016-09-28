@@ -65,6 +65,20 @@
 # =======================================================================================
 
 
+# check if the given coordinates fall in the limits. xy.df is in if a limit is NA  
+#
+# @param 
+.inbound <- function(xy.df, minx, maxx, miny, maxy){
+  xy.df[, "keep"] <- rep(TRUE, times = nrow(xy.df))
+  if(!is.na(minx)){xy.df[, "keep"] <- xy.df[, "keep"] & xy.df[, "x"] >= minx}
+  if(!is.na(maxx)){xy.df[, "keep"] <- xy.df[, "keep"] & xy.df[, "x"] <= minx}
+  if(!is.na(miny)){xy.df[, "keep"] <- xy.df[, "keep"] & xy.df[, "y"] >= miny}
+  if(!is.na(maxy)){xy.df[, "keep"] <- xy.df[, "keep"] & xy.df[, "y"] <= miny}
+  return(as.vector(unlist(xy.df[, "keep"])))
+}
+
+
+
 # Cast factor to numeric (R is still a motherfucking piece of shit!)
 #
 # @param x A factor
@@ -279,26 +293,70 @@
 
 
 
+# Check coordinates for positive or negative missmatches
+#
+# @param x        A data.frame with coordinates in columns c("lon", "lat")
+# @param nsd      A numeric. Number of standard deviations to classify ourliers
+# @param treshold A numeric. The minimum difference (as a proportion in SDs) to accept a sign change in coordinates
+# @return         A data.frame with corrected coordinates and a logical indicating those which changed, i.e.  c("lon", "lat", "changed")
+.checklonlat <- function(x, nsd, treshold){
+  ll.df <- x[, c("lon", "lat")]
+  mlon <- mean(ll.df$lon)
+  mlat <- mean(ll.df$lat)
+  sdlon <- stats::sd(ll.df$lon)
+  sdlat <- stats::sd(ll.df$lat)
+  ll.df["outlon"] <- ll.df$lon < (mlon - (sdlon * nsd)) | ll.df$lon > (mlon + (sdlon * nsd))
+  ll.df["outlat"] <- ll.df$lat < (mlat - (sdlat * nsd)) | ll.df$lat > (mlat + (sdlat * nsd))
+  
+  nll.df <- ll.df[, c("lon", "lat")]
+  nll.df[ll.df$outlon,"lon"] <- ll.df[ll.df$outlon, "lon"] * -1
+  nll.df[ll.df$outlat,"lat"] <- ll.df[ll.df$outlat, "lat"] * -1
+  sdnlon <- stats::sd(nll.df$lon)
+  sdnlat <- stats::sd(nll.df$lat)
+  
+  lon <- ll.df$lon
+  lat <- ll.df$lat
+  changed <- rep(FALSE, nrow(x))
+  if(sdlon / sdnlon > treshold){
+    lon <- nll.df$lon
+    changed <- changed | ll.df$outlon
+  }
+  if(sdlat / sdnlat > treshold){
+    lat <- nll.df$lat
+    changed <- changed | ll.df$outlat
+  }
+  return(data.frame(lon, lat, changed))
+}
+
+
+
 # Split a single raw data file. The output files are prefixed with "traj_specs_".
 #
-# @param file.in Path to a raw data file
-# @param path.out Path to the folder for storing the resulting files
-# @param colname A character. The name of a column where the flags are located
-# @param keepFlags A character vector. Flags to keep in the raw data. i.e. c("...", "..>")
-# @return A character. The name of the new file
-.splitRawdata <- function(file.in, path.out, colname, keepFlags){
-  cnames <- c("site", "year", "month", "day", "hour", "min", "flask", "V8", "concentration", "flag", "V11", "ayear", "amonth", "aday", "ahour", "amin", "lat", "lon", "height", "eventnumber", "flat", "flon", "fheight")
-  file.dat <- .file2df(file.in = file.in, header = FALSE, skip = 0, cnames = cnames)
+# @param file.in    A character.Path to a raw data file
+# @param path.out   A character. Path to the folder for storing the resulting files
+# @param colname    A character. The name of a column where the flags are located
+# @param keepFlags  A character vector. Flags to keep in the raw data. i.e. c("...", "..>")
+# @return           A character. The name of the new file
+.splitRawdata <- function(file.in, path.out, colname, keepFlags){               # raw data column names
+  cnames <- c("site", "year", "month", "day", "hour", "min", "flask", "V8", 
+              "concentration", "flag", "V11", "ayear", "amonth", "aday", 
+              "ahour", "amin", "lat", "lon", "height", "eventnumber", 
+              "flat", "flon", "fheight")
+  file.dat <- .file2df(file.in = file.in, header = FALSE, skip = 0,             # read data
+                       cnames = cnames)
   # filter data
-  keepCols <- c("site", "lat", "lon", "height", "year", "month", "day", "hour", "min", "flask", "concentration")
-  file.dat <- .filterDataframe(df = file.dat, keepCols = keepCols, flagName = colname, keepFlags = keepFlags)
+  keepCols <- c("site", "lat", "lon", "height", "year", "month", "day", "hour", # keep these columns
+                "min", "flask", "concentration")
+  file.dat <- .filterDataframe(df = file.dat, keepCols = keepCols,              # filter using flag attribute
+                               flagName = colname, keepFlags = keepFlags)
   # report duplicated rows
   testUnique.vec <- apply(file.dat[, c("site", "height", "year", "month", "day", "hour", "min", "flask")], 
                           MARGIN = 1, 
                           function(x){
                             gsub(" ", "0", paste(unlist(x), collapse = "___"))
                           })
-  testUnique.df <- as.data.frame(table(as.vector(testUnique.vec)), stringsAsFactors = FALSE)
+  testUnique.df <- as.data.frame(table(as.vector(testUnique.vec)), 
+                                 stringsAsFactors = FALSE)
   dup.df <- testUnique.df[testUnique.df$Freq > 1, ]
   if(nrow(dup.df) > 0){
     for(ri in 1:nrow(dup.df)){
@@ -306,6 +364,25 @@
     }
     #stop("Inconsistent rows in raw data")
   }
+  # test lat lon for missing signs
+  file.dat.list <- split(file.dat, file.dat$site)
+  nsd = 3                                                                       # number of standard deviationto identify an outlier 
+  treshold = 10                                                                 # the minimum difference (in SDs) to accept a sign  change in coordinates
+  outll <- parallel::mclapply(file.dat.list, 
+                              .checklonlat, 
+                              nsd = nsd, 
+                              treshold = treshold)
+  for(i in 1:length(file.dat.list)){
+    xyo.df <- outll[[i]]
+    site.dat <- file.dat.list[[i]]
+    if(sum(xyo.df[, "changed"]) > 0){
+      warning("Changing wrong coordinates on ", site.dat[1, "site"])
+      site.dat["lon"] <- xyo.df["lon"]
+      site.dat["lat"] <- xyo.df["lat"]
+      file.dat.list[[i]] <- site.dat
+    }
+  }
+  file.dat <- do.call("rbind", file.dat.list)
   # store the results
   newfile <- file.path(path.out, paste("traj_specs_", basename(file.in), sep = ""), fsep = .Platform$file.sep)
   utils::write.table(file.dat, file = newfile, col.names = FALSE, row.names = FALSE, quote = FALSE)
@@ -748,6 +825,32 @@
   keep <- unlist(lapply(trajintersect.list, is.null))
   keep <- !keep
   return(data.frame(file.vec, keep))
+}
+
+
+
+# Check the trajectory intersection is in the given boundary
+.trajinbound <- function(traj.intersections, minx, maxx, miny, maxy){
+  keep <- logical()
+  file.vec <- unlist(traj.intersections[[1]])
+  trajintersect.list <- traj.intersections[[2]]
+  if(length(file.vec) == 0){warning("No input files!"); return(data.frame(file.vec, keep))}
+  keeptraj <- sapply(trajintersect.list, is.null)
+  keeptraj <- !keeptraj
+  kfile.vec <- file.vec[keeptraj]
+  ktrajintersect.list <- trajintersect.list[keeptraj]
+  ktrajintersect.df <- do.call("rbind", ktrajintersect.list)
+  xy.df <- ktrajintersect.df[, c("lon", "lat")]
+  colnames(xy.df) <- c("x", "y")
+  keep <- .inbound(xy.df = xy.df, minx = minx, maxx = maxx, 
+                        miny = miny, maxy = maxy)
+  k <- as.data.frame(cbind(kfile.vec, keep), stringsAsFactors = FALSE)
+  names(k) <- c("file.vec", "keep" )
+  file.vec <- as.data.frame(file.vec, stringsAsFactors = FALSE)
+  colnames(file.vec) <- "file.vec"
+  file.vec <- merge(x = file.vec, y = k, by = "file.vec", all.x = TRUE)
+  file.vec$keep <- as.logical(file.vec$keep)
+  return(file.vec)
 }
 
 
