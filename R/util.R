@@ -1120,6 +1120,23 @@
 
 
 
+# Format the file name of the trajectories to put the height before the hour
+#
+# @param file.vec A character vector. The names of the trajectory files
+# @return A character vector
+.formatTrajname <- function(file.vec){
+  file.vec.list <- strsplit(file.vec, split = "_")
+  file.vec.list.df <- as.data.frame(do.call("rbind", file.vec.list))
+  file.vec.list.df["V6"] <- as.numeric(as.vector(unlist(file.vec.list.df["V6"])))
+  file.vec.list.df["V6"] <- formatC(as.vector(unlist(file.vec.list.df["V6"])), 
+          digits = 1, width = 6, format = "f", 
+          flag = "0")
+  file.vec.list.df <- file.vec.list.df[, c("V1", "V2", "V3", "V4", "V6", "V5")]
+  return(apply( file.vec.list.df, 1 , paste , collapse = "_" ))
+}
+
+
+
 # Plot the input data into map, section, and profile graphs. These plots are stored in disk
 #
 # @param file.in            A character. The path to a filtered observations file or flag filtered raw data
@@ -1173,6 +1190,7 @@
                                         colname = "file.vec")
   traj.dat.df <- do.call("rbind", traj.dat.list)                                # collapse to a single data.frame
   traj.dat.df["profile"] <- .filename2profile(unlist(traj.dat.df["file.vec"]))  # add profile column
+  traj.dat.df["trajlabel"] <- .formatTrajname(unlist(traj.dat.df["file.vec"]))
   #-----------------------------------
   # process interpolated data
   #-----------------------------------
@@ -1195,6 +1213,7 @@
                              "spressure", "filerow")
   intersec.df["syear"] <- unlist(intersec.df["syear"]) + 2000
   intersec.df["profile"] <- .filename2profile(as.vector(unlist(intersec.df["file.vec"])))  # add profile column
+  intersec.df["trajlabel"] <- .formatTrajname(as.vector(unlist(intersec.df["file.vec"])))
   #-----------------------------------
   # base map
   #-----------------------------------
@@ -1230,15 +1249,15 @@
     m <- basemap +                                                              # get the base map
       ggplot2::geom_path(data = prof.traj,                                      # add the trajectories
                          mapping = ggplot2::aes(x = lon, y = lat, 
-                                                group = file.vec, 
-                                                colour = file.vec)) + 
+                                                group = trajlabel, 
+                                                colour = trajlabel)) + 
       ggplot2::geom_point(data = prof.traj[1, c("lon", "lat")],                 # add the profile point
                           mapping = ggplot2::aes(x = lon, y = lat, group = NA), 
                           shape = 10, size = 3) + 
       ggplot2::geom_point(data = prof.isec,                                     # add the intersection points
                           mapping = ggplot2::aes(x = slon, y = slat, 
-                                                 group = file.vec, 
-                                                 colour = file.vec))
+                                                 group = trajlabel, 
+                                                 colour = trajlabel))
     ggplot2::ggsave(filename = file.map, plot = m, device = device, 
                     width = map.width, height = map.height)                     # save the map to a file
     # plot 2 - cross sections
@@ -1246,25 +1265,25 @@
     file.latsec <- file.path(path.out, paste(prof, "_sectionlat.", device, sep = ""), fsep = .Platform$file.sep)
     slon <- ggplot2::ggplot(data = prof.traj, 
                             mapping = ggplot2::aes(x = lon, y = height, 
-                                                   group = file.vec, 
-                                                   colour = file.vec)) +
+                                                   group = trajlabel, 
+                                                   colour = trajlabel)) +
       ggplot2::geom_path() + ggplot2::xlim(map.xlim) +                          # add the trajectories
       ggplot2::labs(x = "longitude", y = "height", color = "trajectory") + 
       ggplot2::geom_point(data = prof.isec,                                     # add the intersections
                           mapping = ggplot2::aes(x = slon, y = sheight, 
-                                                 group = file.vec, 
-                                                 colour = file.vec)) + 
+                                                 group = trajlabel, 
+                                                 colour = trajlabel)) + 
       ggplot2::geom_vline(xintercept = prof.traj[1, "lon"], linetype = "dotted")# add the flight
     slat <- ggplot2::ggplot(data = prof.traj, 
                             mapping = ggplot2::aes(x = lat, y = height, 
-                                                   group = file.vec, 
-                                                   colour = file.vec)) +
+                                                   group = trajlabel, 
+                                                   colour = trajlabel)) +
       ggplot2::geom_path() + ggplot2::xlim(map.ylim) +                          # add the trajectories
       ggplot2::labs(x = "latitude", y = "height", color = "trajectory") + 
       ggplot2::geom_point(data = prof.isec,                                     # add the intersections
                           mapping = ggplot2::aes(x = slat, y = sheight, 
-                                                 group = file.vec, 
-                                                 colour = file.vec)) + 
+                                                 group = trajlabel, 
+                                                 colour = trajlabel)) + 
       ggplot2::geom_vline(xintercept = prof.traj[1, "lat"], linetype = "dotted")# add the flight
     ggplot2::ggsave(filename = file.lonsec, plot = slon, device = device, width = sec.width, height = sec.height)
     ggplot2::ggsave(filename = file.latsec, plot = slat, device = device, width = sec.width, height = sec.height)
