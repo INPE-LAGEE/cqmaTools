@@ -24,45 +24,63 @@
                                   })
   return(trajfile.df)
 }
-# DEPRECATED: Mark the outliers in the given data vector
-#
-# @param data.vec A numeric vector. The data to test
-# @param nsd A numeric. The number of standard deviations 
-# @param nsd A logical. Must the median be used instead of the mean?
-# @return A logical vector
-.isOutlier1 <- function(data.vec, nsd, use.median){
-  dm <- mean(data.vec, na.rm = TRUE)
-  if(use.median){dm <- stats::median(data.vec, na.rm = TRUE)}
-  dsd <- stats::sd(data.vec, na.rm = TRUE)
-  return(data.vec < (dm - nsd * dsd) | data.vec > (dm + nsd * dsd))
-}
-# DEPRECATED: Old (1st) version of Remove outliers
-#
-# @param trProf.df A data.frame. The trajectory data interpolated for a single profile
-# @param nsd A numeric. Number of standard deviation from the central tendency
-# @return A data.frame with an additioanl column called concentration
-.removeOutliers1 <- function(trProf.df, nsd){
-  outlier1 <- .isOutlier(
-    data.vec = as.vector(unlist(trProf.df["interpolvalue"])), 
-    nsd = nsd, 
-    use.median = TRUE)
-  outlier1[is.na(outlier1)] <- TRUE
-  trProf.df["outlier"] <- rep(FALSE, nrow(trProf.df))
-  trProf.df[, "concentration"] <- unlist(trProf.df["interpolvalue"])  
-  trProf.df[outlier1, "concentration"] <- stats::median(unlist(trProf.df["interpolvalue"]))
-  outlier2 <- .isOutlier(
-    data.vec = as.vector(unlist(trProf.df["concentration"])), 
-    nsd = nsd, 
-    use.median = TRUE)
-  outlier2[is.na(outlier2)] <- TRUE
-  trProf.df[outlier2, "concentration"] <- stats::median(unlist(trProf.df["concentration"]), na.rm = TRUE)
-  trProf.df["outlier"] <- outlier1 | outlier2
-  trProf.df[outlier1 | outlier2, "concentration"] <- stats::median(unlist(trProf.df["concentration"]), na.rm = TRUE)
-  return(trProf.df)
-}
 # =======================================================================================
 # PACKAGE UTIL 
 # =======================================================================================
+
+
+
+# Replace outliers in trajectories' interpolated values using the median. It identifies outliers twice
+#
+# @param data.vec   A numeric vector. The trajectory data interpolated for a single profile
+# @param nsd        A numeric. Number of standard deviation from the central tendency
+# @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
+# @return           A data.frame with two columns: The new values (background) and booleans indicating those values replaced
+.background.hard <- function(data.vec, nsd, maxfm.ppm){
+  res1 <- .background.median(data.vec, nsd, maxfm.ppm)
+  res2 <- .background.median(as.vector(unlist(res1["background"])), nsd, maxfm.ppm)
+  res2["outlier"] <- res1["outlier"] | res2["outlier"]
+  return(res2)
+}
+
+
+
+# Replace outliers in trajectories' interpolated values using the median
+#
+# @param data.vec   A numeric vector. The trajectory data interpolated for a single profile
+# @param nsd        A numeric. Number of standard deviation from the central tendency
+# @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
+# @return           A data.frame with two columns: The new values (background) and booleans indicating those values replaced
+.background.median <- function(data.vec, nsd, maxfm.ppm){
+  outlier <- .isOutlier(
+    data.vec = data.vec, 
+    nsd = nsd, 
+    maxfm.ppm = maxfm.ppm, 
+    use.median = TRUE)
+  outlier[is.na(outlier)] <- TRUE
+  background <- data.vec
+  background[outlier] <- stats::median(data.vec[!outlier], na.rm = TRUE)
+  return(data.frame(background, outlier))
+}
+
+
+
+# Mark the outliers in the given data vector
+#
+# @param data.vec   A numeric vector. The data to test
+# @param nsd        A numeric. The number of standard deviations 
+# @param nsd        A logical. Must the median be used instead of the mean?
+# @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
+# @return           A logical vector
+.isOutlier <- function(data.vec, nsd, maxfm.ppm, use.median){
+  dm <- mean(data.vec, na.rm = TRUE)
+  if(use.median){dm <- stats::median(data.vec, na.rm = TRUE)}
+  dsd <- stats::sd(data.vec, na.rm = TRUE)
+  testsd <- data.vec < (dm - nsd * dsd) | data.vec > (dm + nsd * dsd)
+  testlim <- data.vec < (dm - maxfm.ppm) | data.vec > (dm + maxfm.ppm)
+  return(testsd | testlim)
+}
+
 
 
 # Check if the given coordinates fall in the limits. xy.df is in if a limit is NA  
@@ -893,46 +911,6 @@
 
 
 
-# Mark the outliers in the given data vector
-#
-# @param data.vec   A numeric vector. The data to test
-# @param nsd        A numeric. The number of standard deviations 
-# @param nsd        A logical. Must the median be used instead of the mean?
-# @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
-# @return           A logical vector
-.isOutlier <- function(data.vec, nsd, maxfm.ppm, use.median){
-  dm <- mean(data.vec, na.rm = TRUE)
-  if(use.median){dm <- stats::median(data.vec, na.rm = TRUE)}
-  dsd <- stats::sd(data.vec, na.rm = TRUE)
-  testsd <- data.vec < (dm - nsd * dsd) | data.vec > (dm + nsd * dsd)
-  testlim <- data.vec < (dm - maxfm.ppm) | data.vec > (dm + maxfm.ppm)
-  return(testsd | testlim)
-}
-
-
-
-
-
-# Replace outliers of the interpolated values from trajectories from a single profile with the median
-#
-# @param data.vec   A numeric vector. The trajectory data interpolated for a single profile
-# @param nsd        A numeric. Number of standard deviation from the central tendency
-# @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
-# @return           A data.frame with two columns: The new values (background) and booleans indicating those values replaced
-.removeOutliers <- function(data.vec, nsd, maxfm.ppm){
-  outlier <- .isOutlier(
-    data.vec = data.vec, 
-    nsd = nsd, 
-    maxfm.ppm = maxfm.ppm, 
-    use.median = TRUE)
-  outlier[is.na(outlier)] <- TRUE
-  background <- data.vec
-  background[outlier] <- stats::median(data.vec[!outlier], na.rm = TRUE)
-  return(data.frame(background, outlier))
-}
-
-
-
 # Get the metadata from file trajectories' file names adn add the profile as a colum
 #
 # @param trajfile.list  A character vector. The names of trajectory files
@@ -1144,6 +1122,7 @@
 # @param traj.plot          A vector of character. File paths to additional trajectories to inlude in the plots
 # @param traj.interpol      A list of numeric. The interpolated values of teh trajectories over the sea
 # @param traj.intersections A list made of a character vector and a list. The character vector is the path to each trajectory file while the list contains the first row in the trajectory file which lies over the sea
+# @param use.backgorund     A character. The type of filter used when calculating the background concentration. The options are c("median", "hard"). Median is the default
 # @param traj.plot          A vector of character. The file path to trajectories to plot additioanl to those in traj.intersections[[1]]
 # @param device             A character. Image format, i.e. PNG
 # @param map.xlim           A numeric vector. Map's min & max longitude
@@ -1158,13 +1137,14 @@
 # @param stations.df        A data.frame with metereological station data. It must contain at least the columns c("name", "lon", "lat")
 # @return                   A character vector. The paths to the plot files
 .plotTrajbackground <- function(file.in, path.out, traj.interpol, 
-                                traj.intersections, traj.plot, device, map.xlim, 
+                                traj.intersections, use.backgorund, traj.plot, 
+                                device, map.xlim, 
                                 map.ylim, map.height, map.width, sec.width, 
                                 sec.height, prof.height, prof.width, nsd, 
                                 maxfm.ppm, stations.df){
   if(length(traj.interpol) == 0){warning("No interpolations!"); return()}
   lon <- 0; lat <- 0; filename <- 0; height <- 0; concentration <- 0; type <- 0 # avoid notes during package check
-  profil <- 0;file.vec <- 0;  sheight <- 0; profile <- 0
+  profil <- 0;file.vec <- 0;  sheight <- 0; profile <- 0; trajlabel <- 0
   #-----------------------------------
   # observation data
   #-----------------------------------
@@ -1230,15 +1210,25 @@
     #-----------------------------------
     prof.obs <- raw.df[raw.df$profile == prof, ]                                # observed data
     prof.int <- interpol.df[interpol.df$profile == prof, ]                      # interpolated data
-    prof.isec <- intersec.df[intersec.df$profile == prof, ]                       # trajectory data of the intersections
+    prof.isec <- intersec.df[intersec.df$profile == prof, ]                     # trajectory data of the intersections
     prof.traj <- traj.dat.df[traj.dat.df$profile == prof, ]                     # all the trajectories of this profile
     # complete interpolation to match the observations
     prof.obs <- merge(x = prof.obs, 
                       y = prof.int[, c("file.vec", "interpolated", "height")], 
                       by = "height", all.x = TRUE)
     colnames(prof.obs)[colnames(prof.obs) == "concentration"] <- "observed"
-    back.df <- .removeOutliers(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
-                    nsd = nsd, maxfm.ppm = maxfm.ppm)
+    #-----------------------------------
+    # background calculation
+    #-----------------------------------
+    back.df <- .background.median(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
+                                  nsd = nsd, maxfm.ppm = maxfm.ppm)    
+    if(use.backgorund == "hard"){
+      back.df <- .background.hard(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
+                                    nsd = nsd, maxfm.ppm = maxfm.ppm)
+    }
+    #-----------------------------------
+    # merge more data
+    #-----------------------------------
     prof.obs <- cbind(prof.obs, back.df)
     prof.obs <- merge(x = prof.obs, y = subset(prof.isec, select = -profile ), 
                       by = "file.vec", all.x = TRUE)

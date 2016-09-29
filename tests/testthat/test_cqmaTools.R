@@ -42,15 +42,14 @@ expect_equal(.date2ydec(date.str, timezone = "GMT"), date.dec)
 
 atest <- c(1,1,1,1100,1)
 res <-   c(F,F,F,T,   F)
-expect_equal(.isOutlier1(data.vec = atest, nsd=2, use.median = TRUE), res)
+maxfm.ppm = 10000000
+expect_equal(.isOutlier(data.vec = atest, nsd=2, use.median = TRUE, maxfm.ppm = maxfm.ppm), res)
 atest <- c(1,1,1,-1100,1)
 res <-   c(F,F,F,    T,F)
-expect_equal(.isOutlier1(data.vec = atest, nsd=2, use.median = TRUE), res)
+expect_equal(.isOutlier(data.vec = atest, nsd=2, use.median = TRUE, maxfm.ppm = maxfm.ppm), res)
 atest <- c(28, 29, 33, 27, 29, 28)
 res <-   c( F,  F,  T,  F,  F,  F)
-expect_equal(.isOutlier1(data.vec = atest, nsd=2, use.median = TRUE), res)
-
-
+expect_equal(.isOutlier(data.vec = atest, nsd=2, use.median = TRUE, maxfm.ppm = maxfm.ppm), res)
 atest <- c(1,1,1,1100,1)
 res <-   c(F,F,F,T,   F)
 expect_equal(.isOutlier(data.vec = atest, nsd=2, maxfm.ppm = 1.5, use.median = TRUE), res)
@@ -66,9 +65,12 @@ expect_equal(.isOutlier(data.vec = atest, nsd=2, maxfm.ppm = 5, use.median = TRU
 atest <- c(30, 35, 30, 35, 30, 30)
 res <-   c( F,  T,  F,  T,  F,  F)
 expect_equal(.isOutlier(data.vec = atest, nsd=2, maxfm.ppm = 1.5, use.median = TRUE), res)
-
-
-
+nsd  <-  2
+maxfm.ppm <-  1.0
+interpolated <- c(387.918385103308, 387.530746818852,387.61208078711, 388.202610296293, 388.211573638231, 388.227018617125, 387.531348727213, 387.536258479053, 387.506342657925, 387.48756476492)
+io <- .isOutlier(data.vec = interpolated, nsd = nsd, maxfm.ppm = maxfm.ppm, use.median = TRUE)
+res <- c(FALSE, FALSE, FALSE, FALSE, FALSE,  TRUE, FALSE, FALSE, FALSE, FALSE)
+expect_equal(.isOutlier(data.vec = interpolated, nsd=2, maxfm.ppm = 1.5, use.median = TRUE), res)
 
 
 
@@ -80,11 +82,14 @@ expect_equal(.isOutlier(data.vec = atest, nsd=2, maxfm.ppm = 1.5, use.median = T
 #
 
 interpolvalue <- c(1,1,1,11000000,1,1,1,1,1,10000, NA)
-ol <- .removeOutliers(data.vec = interpolvalue, nsd = 2, maxfm.ppm = 5)
+ol <- .background.median(data.vec = interpolvalue, nsd = 2, maxfm.ppm = 5)
 res1 <- c(F,F,F, T,F,F,F,F,F, T, T) # identify the outliers after doble testing for  median + 2 * sd
 res2 <- c(1,1,1, 1,1,1,1,1,1,1, 1) # replace the outliers by the median
 expect_equal(as.vector(unlist(ol["outlier"])), res1)
 expect_equal(as.vector(unlist(ol["background"])), res2)
+
+
+
 
 
 
@@ -97,6 +102,11 @@ miny = NA
 maxy = NA
 res <- c(F,F,T,T,T)
 expect_equal(.inbound(xy.df, minx = minx, maxx = maxx, miny = miny, maxy = maxy), res)
+
+
+
+
+
 
 
 # TODO: check function inversibility
