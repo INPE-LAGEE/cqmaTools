@@ -1167,7 +1167,7 @@
                   "V8", "V9", "lat", "lon", "height", "pressure") 
   traj.file.vec <- c(traj.intersections[[1]], traj.plot)                        # all the trajectory file names 
   traj.file.vec <- traj.file.vec[!is.na(traj.file.vec)]
-  traj.dat.list <- .files2df(file.vec = traj.intersections[[1]],                # read the trajectory files into a list of data.frames 
+  traj.dat.list <- .files2df(file.vec = traj.file.vec,                          # read the trajectory files into a list of data.frames 
                              header = FALSE, skip = 0, cnames = trajCnames)
   traj.dat.list <- .listname2data.frame(df.list = traj.dat.list,                # add file name as column
                                         colname = "file.vec")
