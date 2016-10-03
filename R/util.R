@@ -1,32 +1,66 @@
 # util.R
 
 
-# =======================================================================================
-# DEPRECATED
-# =======================================================================================
-# DEPRECATED: Get the metadata from file trajectories' file names adn add the profile as a colum
-#
-# @param trajfile.list A character vector. The names of trajectory files
-# @return A data frame
-.trajFilenames2metadata1 <- function(trajfile.list){
-  
-  trajfile.df <- as.data.frame(do.call("rbind",                                 # process trajectory filenames' metadata 
-                                       parallel::mclapply(trajfile.list, 
-                                                          function(x){
-                                                            unlist(strsplit(x, split = "_"))
-                                                          })), 
-                               stringsAsFactors = FALSE)
-  colnames(trajfile.df) <- c("site", "year", "month", "day", "hour", "height")  # add column names to trajectory filenames' metadata 
-  trajfile.df["profile"] <- apply(trajfile.df[, c( "site", "year", "month", "day")], 
-                                  MARGIN = 1,  
-                                  function(x){
-                                    paste(unlist(x), collapse = "-")
-                                  })
-  return(trajfile.df)
-}
+
 # =======================================================================================
 # PACKAGE UTIL 
 # =======================================================================================
+# the column names of the raw data files
+RAW.DATA.COLNAMES <- c("site", "year", "month", "day", "hour", "min", "flask", 
+                       "V8", "concentration", "flag", "V11", "ayear", "amonth", 
+                       "aday", "ahour", "amin", "lat", "lon", "height", 
+                       "eventnumber", "flat", "flon", "fheight")
+# the column names of the raw data file to keep after filter
+RAW.DATA.COLNAMES.KEEP <- c("site", "lat", "lon", "height", "year", "month", 
+                            "day", "hour", "min", "flask", "concentration", 
+                            "eventnumber")
+# the column names used for testing duplicated rows in the filtered data
+RAW.DATA.COLNAMES.TESTDUPLICATED <- c("site", "height", "year", "month", "day", 
+                                      "hour", "min", "flask")
+# column names of hysplit files
+HYSPLIT.COLNAMES <- c("V1", "V2", "year", "month", "day", "hour", "min", 
+                      "V8", "V9", "lat", "lon", "height", "pressure") 
+# spatial reference system assumed for geographic data 
+SPATIAL.REFERENCE.SYSTEM <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
+# column used to build dates
+DATE.COLNAMES <- c("year", "month", "day", "hour", "min")
+# the zone assumed for data
+TIME.ZONE <- "GMT"
+# metadata included in the trajectory's file names
+TRAJ.FILENAMES.METADATA <- c("site", "year", "month", "day", "hour", "height")
+# column anmes that make a profile
+PROFILE.COLNAMES <- c("site", "year", "month", "day")
+# =======================================================================================
+# PACKAGE UTIL 
+# =======================================================================================
+
+
+
+# Replace all values by the median calculated after removing outliers
+#
+# @param data.vec   A numeric vector. The trajectory data interpolated for a single profile
+# @param nsd        A numeric. Number of standard deviation from the central tendency
+# @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
+# @return           A data.frame with two columns: The new values (background) and booleans indicating those values replaced
+.background.median <- function(data.vec, nsd, maxfm.ppm){
+  outlier <- .isOutlier(
+    data.vec = data.vec, 
+    nsd = nsd, 
+    maxfm.ppm = maxfm.ppm, 
+    use.median = TRUE)
+  outlier[is.na(outlier)] <- TRUE
+  m  <- stats::median(data.vec[!outlier], na.rm = TRUE)
+  background <- rep(m, times = length(data.vec))
+  outlier <- rep(TRUE, times = length(data.vec))
+  for(i  in 1:length(data.vec)){
+    if(!is.na(data.vec[[i]])){
+      if(m == data.vec[[i]]){
+        outlier[i] <- FALSE
+      }
+    }
+  }
+  return(data.frame(background, outlier))
+}
 
 
 
@@ -51,7 +85,7 @@
 # @param nsd        A numeric. Number of standard deviation from the central tendency
 # @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
 # @return           A data.frame with two columns: The new values (background) and booleans indicating those values replaced
-.background.median <- function(data.vec, nsd, maxfm.ppm){
+.background.soft <- function(data.vec, nsd, maxfm.ppm){
   outlier <- .isOutlier(
     data.vec = data.vec, 
     nsd = nsd, 
@@ -213,6 +247,7 @@
 # @param vec  A numeric vector with the limits of the consecutive intervals. Its length must be greater than 1
 # @return     A boolean matrix. The columns represent the interval's limits (vec) and the rows the values (val). The number of intervals is the number of element in vec minus one
 .inInterval <- function(val, vec){
+  # TODO: replace by findInterval {base}
   if(is.null(val)){return(matrix(ncol = 2, nrow = 0))}
   int.mat <- matrix(NA, ncol = 2, nrow = length(vec) - 1, byrow = TRUE) # interval matrix
   # build a test matrix
@@ -316,6 +351,58 @@
 
 
 
+# Split a single raw data file. The output files are prefixed with "traj_specs_".
+#
+# @param file.in    A character.Path to a raw data file
+# @param path.out   A character. Path to the folder for storing the resulting files
+# @param colname    A character. The name of a column where the flags are located
+# @param keepFlags  A character vector. Flags to keep in the raw data. i.e. c("...", "..>")
+# @return           A list iof three. A character with the name of the new file, a data.frame of duplicated or inconsistent rows, and a data.frame of coordinates which were changed because they have the wrong sign
+.splitRawdata <- function(file.in, path.out, colname, keepFlags){               # raw data column names
+  cnames <- RAW.DATA.COLNAMES
+  file.dat <- .file2df(file.in = file.in, header = FALSE, skip = 0,             # read data
+                       cnames = cnames)
+  # filter data
+  keepCols <- RAW.DATA.COLNAMES.KEEP                                            # keep these columns
+  file.dat <- .filterDataframe(df = file.dat, keepCols = keepCols,              # filter using flag attribute
+                               flagName = colname, keepFlags = keepFlags)
+  # report duplicated rows
+  testUnique.vec <- apply(file.dat[, RAW.DATA.COLNAMES.TESTDUPLICATED], 
+                          MARGIN = 1, 
+                          function(x){
+                            gsub(" ", "0", paste(unlist(x), collapse = "___"))
+                          })
+  testUnique.df <- as.data.frame(table(as.vector(testUnique.vec)), 
+                                 stringsAsFactors = FALSE)
+  dup.df <- testUnique.df[testUnique.df$Freq > 1, ]
+  # test lat lon for missing signs
+  file.dat.list <- split(file.dat, file.dat$site)
+  nsd = 3                                                                       # number of standard deviationto identify an outlier 
+  treshold = 10                                                                 # the minimum difference (in SDs) to accept a sign  change in coordinates
+  outll <- parallel::mclapply(file.dat.list, 
+                              .checklonlat, 
+                              nsd = nsd, 
+                              treshold = treshold)
+  # replace coords
+  file.dat <- do.call("rbind", file.dat.list)
+  ll.df <- do.call("rbind", outll)
+  file.dat[, c("lon", "lat")] <- ll.df[, c("lon", "lat")]
+  # store the results
+  newfile <- file.path(path.out, paste("traj_specs_", 
+                                       basename(file.in), sep = ""), 
+                       fsep = .Platform$file.sep)
+  utils::write.table(file.dat, file = newfile, col.names = FALSE, 
+                     row.names = FALSE, quote = FALSE)
+  # report  
+  wrongcoords <- ll.df[ll.df$changed == TRUE, c("lon", "lat")] * (-1)
+  wrongcoords["idrow"] <- as.numeric(rownames(wrongcoords))
+  colnames(dup.df) <- c("shYMDhmflask", "Freq")
+  dup.df["idrow"] <- as.numeric(rownames(dup.df))
+  return(list(newfile, dup.df, wrongcoords))
+}
+
+
+
 # Check coordinates for positive or negative missmatches
 #
 # @param x        A data.frame with coordinates in columns c("lon", "lat")
@@ -353,74 +440,14 @@
 
 
 
-# Split a single raw data file. The output files are prefixed with "traj_specs_".
-#
-# @param file.in    A character.Path to a raw data file
-# @param path.out   A character. Path to the folder for storing the resulting files
-# @param colname    A character. The name of a column where the flags are located
-# @param keepFlags  A character vector. Flags to keep in the raw data. i.e. c("...", "..>")
-# @return           A character. The name of the new file
-.splitRawdata <- function(file.in, path.out, colname, keepFlags){               # raw data column names
-  cnames <- c("site", "year", "month", "day", "hour", "min", "flask", "V8", 
-              "concentration", "flag", "V11", "ayear", "amonth", "aday", 
-              "ahour", "amin", "lat", "lon", "height", "eventnumber", 
-              "flat", "flon", "fheight")
-  file.dat <- .file2df(file.in = file.in, header = FALSE, skip = 0,             # read data
-                       cnames = cnames)
-  # filter data
-  keepCols <- c("site", "lat", "lon", "height", "year", "month", "day", "hour", # keep these columns
-                "min", "flask", "concentration")
-  file.dat <- .filterDataframe(df = file.dat, keepCols = keepCols,              # filter using flag attribute
-                               flagName = colname, keepFlags = keepFlags)
-  # report duplicated rows
-  testUnique.vec <- apply(file.dat[, c("site", "height", "year", "month", "day", "hour", "min", "flask")], 
-                          MARGIN = 1, 
-                          function(x){
-                            gsub(" ", "0", paste(unlist(x), collapse = "___"))
-                          })
-  testUnique.df <- as.data.frame(table(as.vector(testUnique.vec)), 
-                                 stringsAsFactors = FALSE)
-  dup.df <- testUnique.df[testUnique.df$Freq > 1, ]
-  if(nrow(dup.df) > 0){
-    for(ri in 1:nrow(dup.df)){
-      warning(paste("Inconsistent row:",dup.df[ri, 1], sep = ""))
-    }
-    #stop("Inconsistent rows in raw data")
-  }
-  # test lat lon for missing signs
-  file.dat.list <- split(file.dat, file.dat$site)
-  nsd = 3                                                                       # number of standard deviationto identify an outlier 
-  treshold = 10                                                                 # the minimum difference (in SDs) to accept a sign  change in coordinates
-  outll <- parallel::mclapply(file.dat.list, 
-                              .checklonlat, 
-                              nsd = nsd, 
-                              treshold = treshold)
-  for(i in 1:length(file.dat.list)){
-    xyo.df <- outll[[i]]
-    site.dat <- file.dat.list[[i]]
-    if(sum(xyo.df[, "changed"]) > 0){
-      warning("Changing wrong coordinates on ", site.dat[1, "site"])
-      site.dat["lon"] <- xyo.df["lon"]
-      site.dat["lat"] <- xyo.df["lat"]
-      file.dat.list[[i]] <- site.dat
-    }
-  }
-  file.dat <- do.call("rbind", file.dat.list)
-  # store the results
-  newfile <- file.path(path.out, paste("traj_specs_", basename(file.in), sep = ""), fsep = .Platform$file.sep)
-  utils::write.table(file.dat, file = newfile, col.names = FALSE, row.names = FALSE, quote = FALSE)
-  return(newfile)
-}
-
-
-
 # Get a GDAS file name from a row of a traj_spec file
 #
 # @param trajspecs.row  A data.frame with a single row of a traj_spec file. It must contain at least the columns c("yr", "mo", "da")
 # @param                A character with the name of a GDAS file. i.e. "gdas1.feb15.w4"
 .buildGDASfilename <- function(trajspecs.row, timezone){
   # get the week of the month
-  adate  <- paste(unlist(trajspecs.row["yr"]), unlist(trajspecs.row["mo"]), unlist(trajspecs.row["da"]), sep = "-")
+  adate  <- paste(unlist(trajspecs.row["yr"]), unlist(trajspecs.row["mo"]), 
+                  unlist(trajspecs.row["da"]), sep = "-")
   wom <- .monthWeek(adate = adate, weekfirstday = 1, tz = timezone)
   adate <- as.POSIXlt(adate, tz  = timezone)
   # build the filename
@@ -439,11 +466,10 @@
 # @param path.out           A character. The path to store the resulting files. Usually HYSPLIT's simulations folder.
 # @param timezone           A character. The time zone used for date computations.i.e. GMT
 # @return                   A character list of the created files
-.runsimulation <- function(path.in, backTrajTime, hysplit.exec.path, hysplit.work.path, path.out, timezone){
-  exec.file <- file.path(hysplit.exec.path, "hyts_std", fsep = .Platform$file.sep)
-  #if(get_os() == "windows"){
-  #exec.file <- file.path(hysplit.exec.path, "hyts_std.exe", fsep = .Platform$file.sep)
-  #}
+.runsimulation <- function(path.in, backTrajTime, hysplit.exec.path, 
+                           hysplit.work.path, path.out, timezone){
+  exec.file <- file.path(hysplit.exec.path, "hyts_std", 
+                         fsep = .Platform$file.sep)
   if(!file.exists(exec.file)){
     stop("ERROR: Hysplit's executables not found")
   }
@@ -491,7 +517,7 @@
   file.dat["hrf"] <- sprintf("%02d", unlist(file.dat["hr"]))
   file.dat["mmf"] <- sprintf("%02d", unlist(file.dat["mm"]))
   # get the file names of the metereological data file
-  met_files <- unlist(lapply(1:nrow(file.dat), function(x, file.dat){return(.buildGDASfilename(file.dat[x, ], timezone = "GMT"))}, file.dat = file.dat))
+  met_files <- unlist(lapply(1:nrow(file.dat), function(x, file.dat){return(.buildGDASfilename(file.dat[x, ], timezone = TIME.ZONE))}, file.dat = file.dat))
   # get the file names of the metereological data file backTrajTime seconds before the trajectory
   met_filesp1 <- unlist(lapply(1:nrow(file.dat), 
                                function(x, file.dat, backTrajTime, timezone){
@@ -519,20 +545,14 @@
   res <- list()
   for(i in 1:length(control.files)){
     # 1 - create CONTROL file
-    
-    
-    
-    
-    #grep("//", control.files[[i]], fixed = TRUE, replacement = "\\")
-    #gsub("\\", "", str, fixed=TRUE)
-    
-    write(control.files[[i]], file = file.path(MDL, "CONTROL", fsep = .Platform$file.sep)) # write a CONTROL file to directory where trajectory code executable resides
-    
-    
-    
+    write(control.files[[i]], file = file.path(MDL, "CONTROL",                  # write a CONTROL file to directory where trajectory code executable resides
+                                               fsep = .Platform$file.sep)) 
     # 2 - go to exec directory and run simulation   
     row.file.dat <- file.dat[i ,]
-    file.out <- paste(as.character(unlist(row.file.dat["site"])), row.file.dat["yr"], row.file.dat["mof"], row.file.dat["daf"], row.file.dat["hrf"], row.file.dat["height"], sep = "_")
+    file.out <- paste(as.character(unlist(row.file.dat["site"])), 
+                      row.file.dat["yr"], row.file.dat["mof"], 
+                      row.file.dat["daf"], row.file.dat["hrf"], 
+                      row.file.dat["height"], sep = "_")
     print(paste("Simulation:", file.out, "\n"))
     system(file.path(MDL, "hyts_std", fsep = .Platform$file.sep), wait = TRUE)
     # 3 rename and move to trajectory storage directory
@@ -604,8 +624,9 @@
 # @param skip       A numeric. Number of lines to remove from the beginning of the file
 # @return           A list of the created file paths
 .removeHeaders <- function(file.vec, path.out, skip){
-  cnames <- c("V1", "V2", "year", "month", "day", "hour", "min", "V8", "V9", "lat", "lon", "height", "pressure") # column names of hysplit files
-  file.dat.list <- .files2df(file.vec = file.vec,  header = FALSE, skip = skip, cnames = cnames)
+  cnames <- HYSPLIT.COLNAMES                                                    # column names of hysplit files
+  file.dat.list <- .files2df(file.vec = file.vec,  header = FALSE, 
+                             skip = skip, cnames = cnames)
   res <- list()
   for(i in 1:length(file.dat.list)){
     file.dat <- file.dat.list[[i]]
@@ -626,7 +647,8 @@
 .traj2spLines <- function(traj.dat, crs){
   Lines.list <- list()
   for (i in 2:nrow(traj.dat)){
-    l <- sp::Line(rbind(traj.dat[i - 1,][c("lon", "lat")], traj.dat[i,][c("lon", "lat")]))
+    l <- sp::Line(rbind(traj.dat[i - 1,][c("lon", "lat")], 
+                        traj.dat[i,][c("lon", "lat")]))
     Lines.list[[i - 1]] <- sp::Lines(l, as.character(i - 1))
   }
   return(sp::SpatialLines(Lines.list, proj4string = crs))
@@ -657,12 +679,15 @@
 # #path.in <- "/home/alber/Documents/Dropbox/alberLocal/inpe/cqma/data/07"
 # #traj.intersections <- .intersectTraj(path.in = path.in, limit.in = samerica)
 .intersectTraj <- function(file.vec, limit.in){
-  #TODO: constants
-  wgs84 <-  sp::CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
-  cnames <- c("V1", "V2", "year", "month", "day", "hour", "min", "V8", "V9", "lat", "lon", "height", "pressure") # column names of the input file  
+  wgs84 <-  sp::CRS(SPATIAL.REFERENCE.SYSTEM)
+  cnames <- HYSPLIT.COLNAMES                                                    # column names of the input file  
   intersect.dat <- list()
-  if(length(file.vec) == 0){warning("No input files!"); return(list(file.vec, intersect.dat))}
-  traj.dat.list <- .files2df(file.vec = file.vec, header = FALSE, skip = 0, cnames = cnames)
+  if(length(file.vec) == 0){
+    warning("No input files!")
+    return(list(file.vec, intersect.dat))
+  }
+  traj.dat.list <- .files2df(file.vec = file.vec, header = FALSE, 
+                             skip = 0, cnames = cnames)
   traj.spl.list <- parallel::mclapply(traj.dat.list, .traj2spLines, crs = wgs84) # get SpatialLines from trajectories
   traj.intersect.list <- parallel::mclapply(traj.spl.list, .intersectTraj.intersect, g1 = limit.in, byid = c(FALSE, TRUE)) # intersetion of trajectories with the limit
   traj.rowid.list <- parallel::mclapply(traj.intersect.list, function(x){if(is.null(x)){return(NULL)};return(as.numeric(rownames(slot(x, "coords"))[1]))}) # row id so the initial point of the intersection line in the trajectory
@@ -716,14 +741,17 @@
 .crossdata.aux <- function(x, traj.records, traj.data.match, stations, stations.dat, searchTranslation, timezone, tolerance.sec){
   res <- NA
   # get trajectory's date
-  d <- unlist(traj.records[x, c("year", "month", "day", "hour", "min")])
+  d <- unlist(traj.records[x, DATE.COLNAMES])
   trajdate <- paste(
-    paste(d["year"] + 2000, sprintf("%02d", d["month"]), sprintf("%02d", d["day"]), sep = "-"), 
-    paste(sprintf("%02d", d["hour"]), sprintf("%02d", d["min"]), "00", sep = ":"),
+    paste(d[DATE.COLNAMES[1]] + 2000, 
+          sprintf("%02d", d[DATE.COLNAMES[2]]), 
+          sprintf("%02d", d[DATE.COLNAMES[3]]), sep = "-"), 
+    paste(sprintf("%02d", d[DATE.COLNAMES[4]]), 
+          sprintf("%02d", d[DATE.COLNAMES[5]]), "00", sep = ":"),
     sep = " "
   )
   d.noon <- paste(strsplit(trajdate, split = " ")[[1]][1], "12:00:00", sep = " ") # approximate date to noon
-  trajdate <- as.POSIXct(d.noon, tz = "GMT")
+  trajdate <- as.POSIXct(d.noon, tz = TIME.ZONE)
   trajdate <- trajdate + searchTranslation                                        # modify the search date by searchTranslation seconds
   # get the matching stations
   interval <- match(TRUE, traj.data.match[x, ])                                   # get the first interval in which the trajectory record falls
@@ -808,7 +836,7 @@
     traj.data.match = matchInterval, 
     stations = stations.df, 
     stations.dat = station.dat.list, 
-    searchTranslation = searchTranslation, #-1 * (2 * 24 * 3600), # match station's data two days before the records' data
+    searchTranslation = searchTranslation,                                      # match station's data X days before the records' data
     timezone = timezone, 
     tolerance.sec = tolerance.sec
   )
@@ -824,7 +852,7 @@
 # @return         A data.frame with one row for each file and 2 columns: The trajectories' path and a boolean indicating if they meet the test
 .filterTrajHeight <- function(file.vec, above){
   # check trajectories' height and make a vector of those to keep
-  cnames <- c("V1", "V2", "year", "month", "day", "hour", "min", "V8", "V9", "lat", "lon", "height", "pressure") # column names of the input file    
+  cnames <- HYSPLIT.COLNAMES                                                    # column names of the input file    
   file.dat.list <- .files2df(file.vec = file.vec, header = FALSE, 
                              skip = 0, cnames = cnames)
   keep <- vector(mode = "logical", length = length(file.dat.list))
@@ -922,7 +950,7 @@
             parallel::mclapply(bn, 
                                function(x){unlist(strsplit(x, split = "_"))})
     ))
-  colnames(res) <- c("site", "year", "month", "day", "hour", "height")          # add column names to trajectory filenames' metadata 
+  colnames(res) <- TRAJ.FILENAMES.METADATA                                      # add column names to trajectory filenames' metadata 
   return(res)  
 }
 
@@ -951,7 +979,8 @@
     }else{
       # NOTE: when there are two measurements for the same height
       # identify duplicated heights
-      t <- as.data.frame(table(as.vector(unlist(data.df["height"]))), stringsAsFactors = FALSE)
+      t <- as.data.frame(table(as.vector(unlist(data.df["height"]))), 
+                         stringsAsFactors = FALSE)
       t[, 1] <- as.numeric(t[, 1])
       for(i in 1:nrow(t)){
         if(t[i, "Freq"] > 1){
@@ -1045,7 +1074,7 @@
   traj.dat <- do.call("rbind", traj.dat.list)                                  # collapse trajectory data into a single data.frame
   traj.dat["siteyear"] <- unlist(parallel::mclapply(unlist(traj.dat["filename"]),# add new column made of site and year
                                                     function(x){
-                                                      paste(unlist(strsplit(x, split = "_"))[1:2], collapse = "-")
+                                                      paste(unlist(strsplit(x, split = "_"))[1:2], collapse = "_")
                                                     }))
   siteyear.vec <- as.vector(unlist(unique(traj.dat["siteyear"])))
   #-----------------------------------
@@ -1092,7 +1121,7 @@
 .filename2profile <- function(file.vec){
   bn <- basename(file.vec)
   return(as.vector(sapply(bn, function(x){
-    paste(unlist(strsplit(x, split = "_"))[1:4], collapse = "-")
+    paste(unlist(strsplit(x, split = "_"))[1:4], collapse = "_")
   })))
 }
 
@@ -1135,7 +1164,7 @@
 # @param prof.width         A numeric. Profile image size
 # @param nsd                A numeric. Number of standard deviations to use to filter the interpolated data
 # @param stations.df        A data.frame with metereological station data. It must contain at least the columns c("name", "lon", "lat")
-# @return                   A character vector. The paths to the plot files
+# @return                   A list of objects. A character vector with the paths to the plot files, and a data.frame with merged data
 .plotTrajbackground <- function(file.in, path.out, traj.interpol, 
                                 traj.intersections, use.backgorund, traj.plot, 
                                 device, map.xlim, 
@@ -1148,20 +1177,18 @@
   #-----------------------------------
   # observation data
   #-----------------------------------
-  obsCnames <- c("site", "lat", "lon", "height", "year", "month", "day", "hour",# filtered observation column names
-                 "min", "flask", "concentration")  
-  raw.df <- .file2df(file.in = file.in, header = FALSE,                     # flag filtered raw data
+  obsCnames <- RAW.DATA.COLNAMES.KEEP                                           # filtered observation column names
+  raw.df <- .file2df(file.in = file.in, header = FALSE,                         # flag filtered raw data
                      skip = 0, cnames = obsCnames) 
-  raw.df["profile"] <- apply(raw.df[, c( "site", "year", "month", "day")], # add profile column to raw data
+  raw.df["profile"] <- apply(raw.df[, PROFILE.COLNAMES],                        # add profile column to raw data
                              MARGIN = 1, 
                              function(x){
-                               gsub(" ", "0", paste(unlist(x), collapse = "-"))
+                               gsub(" ", "0", paste(unlist(x), collapse = "_"))
                              })
   #-----------------------------------
   # trajectory data
   #-----------------------------------
-  trajCnames <- c("V1", "V2", "year", "month", "day", "hour", "min",            # column names of the trajectory files
-                  "V8", "V9", "lat", "lon", "height", "pressure") 
+  trajCnames <- HYSPLIT.COLNAMES                                                # column names of the trajectory files
   traj.file.vec <- c(traj.intersections[[1]], traj.plot)                        # all the trajectory file names 
   traj.file.vec <- traj.file.vec[!is.na(traj.file.vec)]
   traj.dat.list <- .files2df(file.vec = traj.file.vec,                          # read the trajectory files into a list of data.frames 
@@ -1220,11 +1247,14 @@
     #-----------------------------------
     # background calculation
     #-----------------------------------
-    back.df <- .background.median(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
-                                  nsd = nsd, maxfm.ppm = maxfm.ppm)    
+    back.df <- .background.soft(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
+                                  nsd = nsd, maxfm.ppm = maxfm.ppm)
     if(use.backgorund == "hard"){
       back.df <- .background.hard(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
                                     nsd = nsd, maxfm.ppm = maxfm.ppm)
+    }else if(use.backgorund == "median"){
+      back.df <- .background.median(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
+                                  nsd = nsd, maxfm.ppm = maxfm.ppm)
     }
     #-----------------------------------
     # merge more data
@@ -1247,7 +1277,8 @@
       ggplot2::geom_point(data = prof.isec,                                     # add the intersection points
                           mapping = ggplot2::aes(x = slon, y = slat, 
                                                  group = trajlabel, 
-                                                 colour = trajlabel))
+                                                 colour = trajlabel)) + 
+      ggplot2::guides(fill = ggplot2::guide_legend(reverse=TRUE))
     ggplot2::ggsave(filename = file.map, plot = m, device = device, 
                     width = map.width, height = map.height)                     # save the map to a file
     # plot 2 - cross sections
@@ -1263,7 +1294,8 @@
                           mapping = ggplot2::aes(x = slon, y = sheight, 
                                                  group = trajlabel, 
                                                  colour = trajlabel)) + 
-      ggplot2::geom_vline(xintercept = prof.traj[1, "lon"], linetype = "dotted")# add the flight
+      ggplot2::geom_vline(xintercept = prof.traj[1, "lon"], linetype = "dotted") + # add the flight
+      ggplot2::guides(fill = ggplot2::guide_legend(reverse=TRUE))
     slat <- ggplot2::ggplot(data = prof.traj, 
                             mapping = ggplot2::aes(x = lat, y = height, 
                                                    group = trajlabel, 
@@ -1274,7 +1306,8 @@
                           mapping = ggplot2::aes(x = slat, y = sheight, 
                                                  group = trajlabel, 
                                                  colour = trajlabel)) + 
-      ggplot2::geom_vline(xintercept = prof.traj[1, "lat"], linetype = "dotted")# add the flight
+      ggplot2::geom_vline(xintercept = prof.traj[1, "lat"], linetype = "dotted") + # add the flight
+      ggplot2::guides(fill = ggplot2::guide_legend(reverse=TRUE))
     ggplot2::ggsave(filename = file.lonsec, plot = slon, device = device, width = sec.width, height = sec.height)
     ggplot2::ggsave(filename = file.latsec, plot = slat, device = device, width = sec.width, height = sec.height)
     # plot 3 - profile    
@@ -1311,7 +1344,7 @@
   profile.all <- profile.all[, c("profile", "file.vec", "site", 
                                  "lon", "lat", "height", 
                                  "year", "month", "day", "hour", "min", 
-                                 "flask", 
+                                 "flask", "eventnumber", 
                                  "observed", "background", "interpolated", "outlier", 
                                  "filerow", "V1", "V2", 
                                  "syear", "smonth", "sday", "shour", "smin", 
@@ -1323,5 +1356,64 @@
     utils::write.table(profile.all, file = file.profile)
     filenames <- append(filenames, file.profile)
   }
-  return(filenames)
+  return(list(filenames, profile.all))
 }
+
+
+
+
+# Extract history A and C from collect report files 
+#
+# @param file.in A character. The path to a collect report file. i.e /home/user/PFP_3723_ALF_2010_02_17.txt
+# @return A data.frame with the results of comamnds "HISTORY> A" and "HISTORY> C"
+.getHistoryAC <- function(file.in){
+  file.dat <- readLines(file.in, skipNul = TRUE, warn = FALSE)
+  hs <- grep("HISTORY>", file.dat)
+  # find the commands in the text
+  hA <- grep("HISTORY> A", file.dat, ignore.case = TRUE)
+  hC <- grep("HISTORY> C", file.dat, ignore.case = TRUE)
+  if(length(hA) == 0 | length(hC) == 0){
+    return(NA)
+  }
+  # get the text for HISTORY> A
+  hA.dat <- file.dat[(hA + 1):hs[match(hA, hs) + 1]]
+  hA.dat <- hA.dat[1:(length(hA.dat) - 1)]
+  # get the text for HISTORY> C
+  hC.dat <- file.dat[(hC + 1):hs[match(hC, hs) + 1]]
+  hC.dat <- hC.dat[1:(length(hC.dat) - 1)]
+  #
+  pat <- "*  |*/"                                                                # regular expression' pattern to split 
+  #
+  hA.dat.split <- strsplit(hA.dat, split = pat)
+  hA.mat <- trimws(do.call("rbind", lapply(hA.dat.split, function(x){x <- x[x != ""]})))
+  hA.df <- as.data.frame(hA.mat[2:nrow(hA.mat),], stringsAsFactors = FALSE)
+  colnames(hA.df) <- trimws(hA.mat[1, ])
+  hA.df <- data.matrix(hA.df)
+  #
+  hC.dat.split <- strsplit(hC.dat, split = pat)
+  hC.mat <- trimws(do.call("rbind", lapply(hC.dat.split, function(x){x <- x[x != ""]})))
+  hC.df <- as.data.frame(hC.mat[2:nrow(hC.mat),], stringsAsFactors = FALSE)
+  colnames(hC.df) <- trimws(hC.mat[1, ])
+  hC.df <- data.matrix(hC.df)
+  profile <- paste(unlist(strsplit(sub("([^.]+)\\.[[:alnum:]]+$", "\\1", 
+                       basename(file.in)), split = "_"))[3:6], collapse = "_")
+  # feet to meters
+  f2m <- 0.3048
+  res <- cbind(merge(hA.df, hC.df, by = "sample"))
+  res["planmts"] <- as.vector(res["plan"]) * f2m
+  res["startmts"] <- as.vector(res["start"]) * f2m
+  res["endmts"] <- as.vector(res["end"]) * f2m
+  res["minmts"] <- as.vector(res["min"]) * f2m
+  res["maxmts"] <- as.vector(res["max"]) * f2m
+  res["meanmts"] <- as.vector(res["mean"]) * f2m
+  #
+  return(cbind(res, profile))
+}
+
+
+
+
+
+
+
+
