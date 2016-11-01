@@ -395,7 +395,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
                      row.names = FALSE, quote = FALSE)
   # report  
   wrongcoords <- ll.df[ll.df$changed == TRUE, c("lon", "lat")] * (-1)
-  wrongcoords["idrow"] <- as.numeric(rownames(wrongcoords))
+  wrongcoords["idrow"] <- rownames(wrongcoords)
   colnames(dup.df) <- c("shYMDhmflask", "Freq")
   dup.df["idrow"] <- as.numeric(rownames(dup.df))
   return(list(newfile, dup.df, wrongcoords))
