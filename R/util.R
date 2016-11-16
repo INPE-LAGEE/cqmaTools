@@ -36,6 +36,56 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 
 
 
+# Replace outliers in trajectories' interpolated values using ...
+#
+# @param data.vec   A numeric vector. The trajectory data interpolated for a single profile
+# @param nsd        A numeric. Number of standard deviation from the central tendency
+# @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
+# @return           A data.frame with two columns: The new values (background) and booleans indicating those values replaced
+.background.softrules <- function(data.vec, nsd, maxfm.ppm){
+  outlier <- .background.soft(data.vec = data.vec, nsd = nsd, maxfm.ppm = maxfm.ppm)
+  counter <- 0
+  counter.vec <- rep.int(0, times = length(data.vec))
+  for(i in 1:nrow(outlier)){
+    if(outlier$outlier[i] == TRUE){
+      counter = counter + 1
+    }else{
+      counter = 0
+    }
+    counter.vec[i] <- counter
+  }
+  if(max(counter.vec) > 1){
+    outlier$outlier <- FALSE
+    outlier$background <- data.vec
+  }
+  return(outlier)
+}
+
+# Replace outliers in trajectories' interpolated values using clusterization. 
+#
+# @param data.vec   A numeric vector. The trajectory data interpolated for a single profile
+# @param nsd        A numeric. Number of standard deviation from the central tendency
+# @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
+# @return           A data.frame with two columns: The new values (background) and booleans indicating those values replaced
+.background.cluster <- function(data.vec, nsd, maxfm.ppm){
+  # add position as an attribute - WARNING: Data order is important
+  idx <- 1:length(data.vec)
+  # normalize the data
+  data.norm <- (data.vec - min(data.vec))/(max(data.vec) - min(data.vec))
+  idx.norm <- (idx - min(idx))/(max(idx) - min(idx))
+  data.norm <- cbind(data.norm, idx.norm)
+  # clustering
+  pamk.best <- pamk(data.norm, krange = 2:floor(nrow(data.norm)/2))             # At least 2 observations per cluster?
+  cid <- pamk.best$pamobject$clustering
+  # applies background calculation on each cluster
+  bm <- data.frame()
+  for(c in 1:max(cid)){
+    back.cal <- .background.soft(data.vec = data.vec[cid == c], nsd = nsd, maxfm.ppm = maxfm.ppm)
+    bm <- rbind(bm, back.cal)
+  }
+  return(bm)
+}
+
 # Replace all values by the median calculated after removing outliers
 #
 # @param data.vec   A numeric vector. The trajectory data interpolated for a single profile
@@ -1121,7 +1171,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 .filename2profile <- function(file.vec){
   bn <- basename(file.vec)
   return(as.vector(sapply(bn, function(x){
-    paste(unlist(strsplit(x, split = "_"))[1:4], collapse = "_")
+    toupper(paste(unlist(strsplit(x, split = "_"))[1:4], collapse = "_"))
   })))
 }
 
@@ -1245,7 +1295,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
                       by = "height", all.x = TRUE)
     colnames(prof.obs)[colnames(prof.obs) == "concentration"] <- "observed"
     #-----------------------------------
-    # background calculation
+    # background calculation - if not given, it uses soft
     #-----------------------------------
     back.df <- .background.soft(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
                                   nsd = nsd, maxfm.ppm = maxfm.ppm)
@@ -1255,6 +1305,12 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
     }else if(use.backgorund == "median"){
       back.df <- .background.median(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
                                   nsd = nsd, maxfm.ppm = maxfm.ppm)
+    }else if(use.backgorund == "cluster"){
+      back.df <- .background.cluster(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
+                                    nsd = nsd, maxfm.ppm = maxfm.ppm)
+    }else if(use.backgorund == "softrules"){
+      back.df <- .background.softrules(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
+                                     nsd = nsd, maxfm.ppm = maxfm.ppm)
     }
     #-----------------------------------
     # merge more data

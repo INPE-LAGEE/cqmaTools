@@ -95,7 +95,7 @@ expect_equal(as.vector(unlist(ol["background"])), res2)
 interpolated <- c(1,2,3,4,5,5,6,7,NA,9,0)
 res1 <- rep(median(interpolated, na.rm = TRUE), times = length(interpolated))
 res2 <- rep(TRUE, times = length(interpolated))
-bm <- .background.median(data.vec = interpolated, nsd = 2, maxfm.ppm = 5)
+
 expect_equal(as.vector(unlist(bm["background"])), res1)
 expect_equal(as.vector(unlist(bm["outlier"])), res2)
 interpolated <- c(1,2,3,4,5,5,6,7,8,9,0)
@@ -109,7 +109,10 @@ expect_equal(as.vector(unlist(bm["outlier"])), res2)
 
 
 
-
+interpolated <- c(1,1,1,9,9,9)
+bm <- .background.cluster(data.vec = interpolated, nsd = 2, maxfm.ppm = 0.2)
+plot(bm$background, y = 1:nrow(bm))
+#
 
 
 
@@ -117,6 +120,8 @@ interpolated <- c(387.918385103308, 387.530746818852,387.61208078711, 388.202610
 bs <- .background.soft(data.vec = interpolated, nsd = 2, maxfm.ppm = 5)
 bm <- .background.median(data.vec = interpolated, nsd = 2, maxfm.ppm = 5)
 bh <- .background.hard(data.vec = interpolated, nsd = 2, maxfm.ppm = 5)
+
+
 # compare results
 plot(y = c(1:length(interpolated)), x = interpolated, type = "b", col = "black", xlab = "Concentration", ylab = "height")
 lines(y = as.numeric(rownames(bs)), x = as.vector(unlist(bs["background"])), type = "l", col = "green")
