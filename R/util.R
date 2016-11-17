@@ -47,7 +47,12 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   counter <- 0
   counter.vec <- rep.int(0, times = length(data.vec))
   for(i in 1:nrow(outlier)){
+################################################################################    
     if(outlier$outlier[i] == TRUE){
+# TODO:
+#Error in if (outlier$outlier[i] == TRUE) { : 
+#missing value where TRUE/FALSE needed
+################################################################################
       counter = counter + 1
     }else{
       counter = 0
@@ -1220,7 +1225,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
                                 device, map.xlim, 
                                 map.ylim, map.height, map.width, sec.width, 
                                 sec.height, prof.height, prof.width, nsd, 
-                                maxfm.ppm, stations.df){
+                                maxfm.ppm, stations.df, logger){
   if(length(traj.interpol) == 0){warning("No interpolations!"); return()}
   lon <- 0; lat <- 0; filename <- 0; height <- 0; concentration <- 0; type <- 0 # avoid notes during package check
   profil <- 0;file.vec <- 0;  sheight <- 0; profile <- 0; trajlabel <- 0
@@ -1282,6 +1287,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   filenames <- vector(mode = "character", length = 0)                           # files created on this function
   profile.all <- data.frame()                                                   # keep the profile data  
   for(prof in profile.vec){
+    debug(logger, paste(" - - processing profile ", prof, sep = ""))
     #-----------------------------------
     # merge data
     #-----------------------------------
