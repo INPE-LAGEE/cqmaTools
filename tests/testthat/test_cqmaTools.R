@@ -157,6 +157,26 @@ expect_equal(.inbound(xy.df, minx = minx, maxx = maxx, miny = miny, maxy = maxy)
 
 
 
+expect_equal(.recttrapezearea(height = 2, minorlength = 10, mayorlength = 12), 22)
+expect_equal(.recttrapezearea(height = 11, minorlength = -1, mayorlength = 10), 49.5)
+
+expect_true(abs(.floorconcentration(dif_obs_bkg = -0.87, 
+                                    hfloor = 250, 
+                                    temp = 32.06, 
+                                    height = 476.4, 
+                                    molair = 37.56) + 33.04107) < 2.03e-06)
+
+
+expect_true(abs(.floorconcentration(dif_obs_bkg = -4.52, 
+                                    hfloor = 250, 
+                                    temp = 29.71, 
+                                    height = 443.5, 
+                                    molair = 38.05) + 173.4956) < 2.606759e-05)
+
+
+
+
+
 
 # TODO: check function inversibility
 #date.dec <- 2015.916438
@@ -194,4 +214,3 @@ expect_equal(.inbound(xy.df, minx = minx, maxx = maxx, miny = miny, maxy = maxy)
 #year.dec <- 2015.921918 # 2015-12-03
 #(adate <- .ydec2date(year.dec))
 #formatC(.date2ydec(adate), 10)
-

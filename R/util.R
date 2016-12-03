@@ -47,12 +47,12 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   counter <- 0
   counter.vec <- rep.int(0, times = length(data.vec))
   for(i in 1:nrow(outlier)){
-################################################################################    
+    ################################################################################    
     if(outlier$outlier[i] == TRUE){
-# TODO:
-#Error in if (outlier$outlier[i] == TRUE) { : 
-#missing value where TRUE/FALSE needed
-################################################################################
+      # TODO:
+      #Error in if (outlier$outlier[i] == TRUE) { : 
+      #missing value where TRUE/FALSE needed
+      ################################################################################
       counter = counter + 1
     }else{
       counter = 0
@@ -186,6 +186,54 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   if(!is.na(miny)){xy.df[, "keep"] <- xy.df[, "keep"] & xy.df[, "y"] >= miny}
   if(!is.na(maxy)){xy.df[, "keep"] <- xy.df[, "keep"] & xy.df[, "y"] <= miny}
   return(as.vector(unlist(xy.df[, "keep"])))
+}
+
+
+
+# return the area of a rectangular trapeze |=/
+#
+# @param height       A numeric. The height of trapeze
+# @param minorlength  A numeric. The minor side
+# @param mayorlength  A numeric. The mayor side
+# @return             A numeric. The are of the trapeze
+.recttrapezearea <- function(height, minorlength, mayorlength){
+  a <- height * (minorlength + mayorlength)/2
+  return(a)
+}
+
+
+
+# compute the concentration on the ground
+#
+# 
+# @param dif_obs_bkg  A numeric. The difference between the observed conetration and the background concentration
+# @param hfloor       A numeric. The hieght of the floor
+# @param temp         A numeric. The tempearture of the first observation above the floor
+# @param height       A numeric. The height of the first observaton above the floor
+# @param molair       A numeric. The molarity of the air
+# @return             A numeric. The concentration on the ground
+.floorconcentration <- function(dif_obs_bkg, hfloor, temp, height, molair){
+  ((dif_obs_bkg * exp(-hfloor / 1013.25 / 7) / 0.0000820574587 / (temp + 273 + ((height - hfloor) * 0.0059))) + (molair * dif_obs_bkg))/2
+}
+
+
+
+col2time <- function(year, month, day, hour, minute, second, timezone){
+  as.POSIXct(  
+    paste(
+      paste( # YYYY/MM/DD
+        year, 
+        formatC(month, width = 2, flag = 0), 
+        formatC(day, width = 2, flag = 0), 
+        sep = "-"), 
+      paste( # hh:mm:ss
+        formatC(hour, width = 2, flag = 0), 
+        formatC(minute, width = 2, flag = 0), 
+        formatC(second, width = 2, flag = 0),
+        sep = ":"),
+      timezone,
+      sep = " "
+    ))
 }
 
 
@@ -955,7 +1003,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   xy.df <- ktrajintersect.df[, c("lon", "lat")]
   colnames(xy.df) <- c("x", "y")
   keep <- .inbound(xy.df = xy.df, minx = minx, maxx = maxx, 
-                        miny = miny, maxy = maxy)
+                   miny = miny, maxy = maxy)
   k <- as.data.frame(cbind(kfile.vec, keep), stringsAsFactors = FALSE)
   names(k) <- c("file.vec", "keep" )
   file.vec <- as.data.frame(file.vec, stringsAsFactors = FALSE)
@@ -1191,8 +1239,8 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   file.vec.list.df <- as.data.frame(do.call("rbind", file.vec.list))
   file.vec.list.df["V6"] <- as.numeric(as.vector(unlist(file.vec.list.df["V6"])))
   file.vec.list.df["V6"] <- formatC(as.vector(unlist(file.vec.list.df["V6"])), 
-          digits = 1, width = 6, format = "f", 
-          flag = "0")
+                                    digits = 1, width = 6, format = "f", 
+                                    flag = "0")
   file.vec.list.df <- file.vec.list.df[, c("V1", "V2", "V3", "V4", "V6", "V5")]
   return(apply( file.vec.list.df, 1 , paste , collapse = "_" ))
 }
@@ -1267,7 +1315,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   # process intersections
   #-----------------------------------
   intersec.df <- cbind(basename(traj.intersections[[1]]), 
-                  do.call("rbind", traj.intersections[[2]]))
+                       do.call("rbind", traj.intersections[[2]]))
   intersec.df["filerow"] <- as.numeric(rownames(intersec.df))
   colnames(intersec.df) <- c("file.vec", "V1", "V2", "syear", "smonth",         # rename columns
                              "sday", "shour", "smin", "V8", "V9", 
@@ -1304,19 +1352,19 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
     # background calculation - if not given, it uses soft
     #-----------------------------------
     back.df <- .background.soft(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
-                                  nsd = nsd, maxfm.ppm = maxfm.ppm)
+                                nsd = nsd, maxfm.ppm = maxfm.ppm)
     if(use.backgorund == "hard"){
       back.df <- .background.hard(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
-                                    nsd = nsd, maxfm.ppm = maxfm.ppm)
+                                  nsd = nsd, maxfm.ppm = maxfm.ppm)
     }else if(use.backgorund == "median"){
       back.df <- .background.median(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
-                                  nsd = nsd, maxfm.ppm = maxfm.ppm)
+                                    nsd = nsd, maxfm.ppm = maxfm.ppm)
     }else if(use.backgorund == "cluster"){
       back.df <- .background.cluster(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
-                                    nsd = nsd, maxfm.ppm = maxfm.ppm)
+                                     nsd = nsd, maxfm.ppm = maxfm.ppm)
     }else if(use.backgorund == "softrules"){
       back.df <- .background.softrules(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
-                                     nsd = nsd, maxfm.ppm = maxfm.ppm)
+                                       nsd = nsd, maxfm.ppm = maxfm.ppm)
     }
     #-----------------------------------
     # merge more data
@@ -1458,7 +1506,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   colnames(hC.df) <- trimws(hC.mat[1, ])
   hC.df <- data.matrix(hC.df)
   profile <- paste(unlist(strsplit(sub("([^.]+)\\.[[:alnum:]]+$", "\\1", 
-                       basename(file.in)), split = "_"))[3:6], collapse = "_")
+                                       basename(file.in)), split = "_"))[3:6], collapse = "_")
   # feet to meters
   f2m <- 0.3048
   res <- cbind(merge(hA.df, hC.df, by = "sample"))
@@ -1471,7 +1519,6 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   #
   return(cbind(res, profile))
 }
-
 
 
 
