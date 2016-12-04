@@ -43,116 +43,50 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 # @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
 # @return           A data.frame with two columns: The new values (background) and booleans indicating those values replaced
 .background.softrules <- function(data.vec, nsd, maxfm.ppm){
-  outlier <- .background.soft(data.vec = data.vec, nsd = nsd, maxfm.ppm = maxfm.ppm)
-  counter <- 0
-  counter.vec <- rep.int(0, times = length(data.vec))
-  for(i in 1:nrow(outlier)){
-    ################################################################################    
-    if(outlier$outlier[i] == TRUE){
-      # TODO:
-      #Error in if (outlier$outlier[i] == TRUE) { : 
-      #missing value where TRUE/FALSE needed
-      ################################################################################
-      counter = counter + 1
+  outlier <- as.data.frame(cbind(data.vec, .isOutlier(data.vec = data.vec, nsd = nsd, maxfm.ppm = maxfm.ppm, use.median = TRUE))) #  identify outliers
+  names(outlier) <- c("background", "outlier")
+  outlier$outlier <- as.logical(outlier$outlier)                              # cast back to logical (R sucks!)
+  # find stand-alone outliers
+  newoutlier <- outlier$outlier
+  for(i in 2:(length(outlier$outlier) - 1)){
+    if(identical(outlier$outlier[(i-1):(i+1)], c(FALSE, TRUE, FALSE))){
+      outlier$background[i] <- NA
     }else{
-      counter = 0
+      newoutlier[i] <- FALSE
     }
-    counter.vec[i] <- counter
   }
-  if(max(counter.vec) > 1){
-    outlier$outlier <- FALSE
-    outlier$background <- data.vec
-  }
+  outlier$outlier <- newoutlier
+  outlier$outlier[is.na(data.vec)] <- TRUE                                    # mark missing values as outliers
+  outlier$background <- .fillNAs(outlier$background)                          # replace NAs with local means
   return(outlier)
 }
 
-# Replace outliers in trajectories' interpolated values using clusterization. 
-#
-# @param data.vec   A numeric vector. The trajectory data interpolated for a single profile
-# @param nsd        A numeric. Number of standard deviation from the central tendency
-# @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
-# @return           A data.frame with two columns: The new values (background) and booleans indicating those values replaced
-.background.cluster <- function(data.vec, nsd, maxfm.ppm){
-  # add position as an attribute - WARNING: Data order is important
-  idx <- 1:length(data.vec)
-  # normalize the data
-  data.norm <- (data.vec - min(data.vec))/(max(data.vec) - min(data.vec))
-  idx.norm <- (idx - min(idx))/(max(idx) - min(idx))
-  data.norm <- cbind(data.norm, idx.norm)
-  # clustering
-  pamk.best <- pamk(data.norm, krange = 2:floor(nrow(data.norm)/2))             # At least 2 observations per cluster?
-  cid <- pamk.best$pamobject$clustering
-  # applies background calculation on each cluster
-  bm <- data.frame()
-  for(c in 1:max(cid)){
-    back.cal <- .background.soft(data.vec = data.vec[cid == c], nsd = nsd, maxfm.ppm = maxfm.ppm)
-    bm <- rbind(bm, back.cal)
-  }
-  return(bm)
-}
 
-# Replace all values by the median calculated after removing outliers
+# Replace the NAs in a vector using the a local mean
 #
-# @param data.vec   A numeric vector. The trajectory data interpolated for a single profile
-# @param nsd        A numeric. Number of standard deviation from the central tendency
-# @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
-# @return           A data.frame with two columns: The new values (background) and booleans indicating those values replaced
-.background.median <- function(data.vec, nsd, maxfm.ppm){
-  outlier <- .isOutlier(
-    data.vec = data.vec, 
-    nsd = nsd, 
-    maxfm.ppm = maxfm.ppm, 
-    use.median = TRUE)
-  outlier[is.na(outlier)] <- TRUE
-  m  <- stats::median(data.vec[!outlier], na.rm = TRUE)
-  background <- rep(m, times = length(data.vec))
-  outlier <- rep(TRUE, times = length(data.vec))
-  for(i  in 1:length(data.vec)){
-    if(!is.na(data.vec[[i]])){
-      if(m == data.vec[[i]]){
-        outlier[i] <- FALSE
+# @param data.vec   A numeric vector including NAs
+# @return           A numeric vector
+.fillNAs <- function(data.vec){
+  res <- data.vec
+  lastobs <- NA
+  nextobs <- NA
+  for(i in 1:length(res)){
+    if(is.na(res[i])){
+      if((i + 1) <= length(res)){                                               # get next valid observation
+        for(j in (i + 1):length(res)){
+          if(!is.na(res[j])){
+            nextobs <- res[j]
+            break
+          }
+        }
       }
+      res[i] <- mean(c(lastobs, nextobs), na.rm = TRUE)
+    }else{
+      lastobs <- res[i]                                                         # actual becones last valid observation
     }
   }
-  return(data.frame(background, outlier))
+  return(res)
 }
-
-
-
-# Replace outliers in trajectories' interpolated values using the median. It identifies outliers twice
-#
-# @param data.vec   A numeric vector. The trajectory data interpolated for a single profile
-# @param nsd        A numeric. Number of standard deviation from the central tendency
-# @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
-# @return           A data.frame with two columns: The new values (background) and booleans indicating those values replaced
-.background.hard <- function(data.vec, nsd, maxfm.ppm){
-  res1 <- .background.median(data.vec, nsd, maxfm.ppm)
-  res2 <- .background.median(as.vector(unlist(res1["background"])), nsd, maxfm.ppm)
-  res2["outlier"] <- res1["outlier"] | res2["outlier"]
-  return(res2)
-}
-
-
-
-# Replace outliers in trajectories' interpolated values using the median
-#
-# @param data.vec   A numeric vector. The trajectory data interpolated for a single profile
-# @param nsd        A numeric. Number of standard deviation from the central tendency
-# @param maxfm.ppm  A numeric. Maximum number of units away from the central tendency measure
-# @return           A data.frame with two columns: The new values (background) and booleans indicating those values replaced
-.background.soft <- function(data.vec, nsd, maxfm.ppm){
-  outlier <- .isOutlier(
-    data.vec = data.vec, 
-    nsd = nsd, 
-    maxfm.ppm = maxfm.ppm, 
-    use.median = TRUE)
-  outlier[is.na(outlier)] <- TRUE
-  background <- data.vec
-  background[outlier] <- stats::median(data.vec[!outlier], na.rm = TRUE)
-  return(data.frame(background, outlier))
-}
-
-
 
 # Mark the outliers in the given data vector
 #
@@ -1267,13 +1201,14 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
 # @param prof.width         A numeric. Profile image size
 # @param nsd                A numeric. Number of standard deviations to use to filter the interpolated data
 # @param stations.df        A data.frame with metereological station data. It must contain at least the columns c("name", "lon", "lat")
+# @param plot2file          A logical. Should plots be stored as files?
 # @return                   A list of objects. A character vector with the paths to the plot files, and a data.frame with merged data
 .plotTrajbackground <- function(file.in, path.out, traj.interpol, 
                                 traj.intersections, use.backgorund, traj.plot, 
                                 device, map.xlim, 
                                 map.ylim, map.height, map.width, sec.width, 
                                 sec.height, prof.height, prof.width, nsd, 
-                                maxfm.ppm, stations.df, logger){
+                                maxfm.ppm, stations.df, plot2file, logger){
   if(length(traj.interpol) == 0){warning("No interpolations!"); return()}
   lon <- 0; lat <- 0; filename <- 0; height <- 0; concentration <- 0; type <- 0 # avoid notes during package check
   profil <- 0;file.vec <- 0;  sheight <- 0; profile <- 0; trajlabel <- 0
@@ -1351,21 +1286,8 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
     #-----------------------------------
     # background calculation - if not given, it uses soft
     #-----------------------------------
-    back.df <- .background.soft(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
-                                nsd = nsd, maxfm.ppm = maxfm.ppm)
-    if(use.backgorund == "hard"){
-      back.df <- .background.hard(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
-                                  nsd = nsd, maxfm.ppm = maxfm.ppm)
-    }else if(use.backgorund == "median"){
-      back.df <- .background.median(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
-                                    nsd = nsd, maxfm.ppm = maxfm.ppm)
-    }else if(use.backgorund == "cluster"){
-      back.df <- .background.cluster(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
-                                     nsd = nsd, maxfm.ppm = maxfm.ppm)
-    }else if(use.backgorund == "softrules"){
       back.df <- .background.softrules(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
                                        nsd = nsd, maxfm.ppm = maxfm.ppm)
-    }
     #-----------------------------------
     # merge more data
     #-----------------------------------
@@ -1389,8 +1311,6 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
                                                  group = trajlabel, 
                                                  colour = trajlabel)) + 
       ggplot2::guides(fill = ggplot2::guide_legend(reverse=TRUE))
-    ggplot2::ggsave(filename = file.map, plot = m, device = device, 
-                    width = map.width, height = map.height)                     # save the map to a file
     # plot 2 - cross sections
     file.lonsec <- file.path(path.out, paste(prof, "_sectionlon.", device, sep = ""), fsep = .Platform$file.sep)
     file.latsec <- file.path(path.out, paste(prof, "_sectionlat.", device, sep = ""), fsep = .Platform$file.sep)
@@ -1418,8 +1338,6 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
                                                  colour = trajlabel)) + 
       ggplot2::geom_vline(xintercept = prof.traj[1, "lat"], linetype = "dotted") + # add the flight
       ggplot2::guides(fill = ggplot2::guide_legend(reverse=TRUE))
-    ggplot2::ggsave(filename = file.lonsec, plot = slon, device = device, width = sec.width, height = sec.height)
-    ggplot2::ggsave(filename = file.latsec, plot = slat, device = device, width = sec.width, height = sec.height)
     # plot 3 - profile    
     if(nrow(prof.obs) > 0){
       file.profile <- file.path(path.out, paste(prof, "_profile.", device, sep = ""), fsep = .Platform$file.sep)    
@@ -1442,8 +1360,18 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
                                                   colour = type)) + 
         ggplot2::geom_path() +
         ggplot2::geom_point()
-      ggplot2::ggsave(filename = file.profile, plot = p, device = device, 
-                      width = prof.width, height = prof.height)
+      # plot
+      if(plot2file){
+      ggplot2::ggsave(filename = file.map, plot = m, device = device, width = map.width, height = map.height)                     # save the map to a file
+      ggplot2::ggsave(filename = file.lonsec, plot = slon, device = device, width = sec.width, height = sec.height)
+      ggplot2::ggsave(filename = file.latsec, plot = slat, device = device, width = sec.width, height = sec.height)
+      ggplot2::ggsave(filename = file.profile, plot = p, device = device, width = prof.width, height = prof.height)
+      }else{
+        print(m)
+        print(slon)
+        print(slat)
+        print(p)
+      }
       filenames <- append(filenames, file.profile)
     }
     # output file names
