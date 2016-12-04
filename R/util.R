@@ -1092,8 +1092,9 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
 # @param map.height   A numeirc. Map image size
 # @param map.width    A numeirc. Map image size
 # @param stations.df  A data.frame with metereological station data. It must contain at least the columns c("name", "lon", "lat")
+# @param plot2file    A logical. Should the plot be stored as a file
 # @return             A list. The path to the created files
-.plotTrajYear <- function(file.vec, path.out, device, map.xlim, map.ylim, map.height, map.width, stations.df){
+.plotTrajYear <- function(file.vec, path.out, device, map.xlim, map.ylim, map.height, map.width, stations.df, plot2file){
   lon <- 0; lat <- 0; filename <- 0                                             # avoid notes during package check
   #-----------------------------------
   # process data
@@ -1129,7 +1130,11 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
       ggplot2::geom_point(data = dtraj.df[1, c("lon", "lat")], mapping = ggplot2::aes(x = lon, y = lat, group = NA), shape = 10, size = 3) + 
       ggplot2::theme(legend.position="none") + 
       ggplot2::ggtitle(label = dtraj.df[1, "siteyear"])
-    ggplot2::ggsave(filename = plot.map, plot = m, device = device, width = map.width, height = map.height)
+    if(plot2file){
+      ggplot2::ggsave(filename = plot.map, plot = m, device = device, width = map.width, height = map.height)
+    }else{
+      print(m)
+    }
     res[[i]] <- plot.map
   }
   return(res)
@@ -1286,8 +1291,8 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
     #-----------------------------------
     # background calculation - if not given, it uses soft
     #-----------------------------------
-      back.df <- .background.softrules(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
-                                       nsd = nsd, maxfm.ppm = maxfm.ppm)
+    back.df <- .background.softrules(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
+                                     nsd = nsd, maxfm.ppm = maxfm.ppm)
     #-----------------------------------
     # merge more data
     #-----------------------------------
@@ -1362,10 +1367,10 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
         ggplot2::geom_point()
       # plot
       if(plot2file){
-      ggplot2::ggsave(filename = file.map, plot = m, device = device, width = map.width, height = map.height)                     # save the map to a file
-      ggplot2::ggsave(filename = file.lonsec, plot = slon, device = device, width = sec.width, height = sec.height)
-      ggplot2::ggsave(filename = file.latsec, plot = slat, device = device, width = sec.width, height = sec.height)
-      ggplot2::ggsave(filename = file.profile, plot = p, device = device, width = prof.width, height = prof.height)
+        ggplot2::ggsave(filename = file.map, plot = m, device = device, width = map.width, height = map.height)                     # save the map to a file
+        ggplot2::ggsave(filename = file.lonsec, plot = slon, device = device, width = sec.width, height = sec.height)
+        ggplot2::ggsave(filename = file.latsec, plot = slat, device = device, width = sec.width, height = sec.height)
+        ggplot2::ggsave(filename = file.profile, plot = p, device = device, width = prof.width, height = prof.height)
       }else{
         print(m)
         print(slon)
