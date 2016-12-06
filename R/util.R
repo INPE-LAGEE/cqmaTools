@@ -151,23 +151,21 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 }
 
 
-
-col2time <- function(year, month, day, hour, minute, second, timezone){
-  as.POSIXct(  
-    paste(
-      paste( # YYYY/MM/DD
-        year, 
-        formatC(month, width = 2, flag = 0), 
-        formatC(day, width = 2, flag = 0), 
-        sep = "-"), 
-      paste( # hh:mm:ss
-        formatC(hour, width = 2, flag = 0), 
-        formatC(minute, width = 2, flag = 0), 
-        formatC(second, width = 2, flag = 0),
-        sep = ":"),
-      timezone,
-      sep = " "
-    ))
+# join column vectors and build dates using row vectors
+.col2time <- function(ayear, amonth, aday, ahour, aminute, asecond, atimezone){
+  res <- rep(NA, times = length(ayear))
+  for(x in 1:length(ayear)){
+    if(is.na(ayear[x])){next}
+    first <- paste(ayear[x], 
+                   formatC(amonth[x], width = 2, flag = 0), 
+                   formatC(aday[x], width = 2, flag = 0), sep = "-")
+    second <- paste(formatC(ahour[x], width = 2, flag = 0), 
+                    formatC(aminute[x], width = 2, flag = 0), 
+                    formatC(asecond[x], width = 2, flag = 0), sep = ":")
+    third <- paste(first, second, sep = " ")
+    res[x] <- as.POSIXct(third, tz = atimezone)  
+  }
+  return(as.POSIXct(res, origin = "1970-01-01", tz = atimezone))
 }
 
 
@@ -1240,7 +1238,7 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
                                         colname = "file.vec")
   traj.dat.df <- do.call("rbind", traj.dat.list)                                # collapse to a single data.frame
   traj.dat.df["profile"] <- .filename2profile(unlist(traj.dat.df["file.vec"]))  # add profile column
-  traj.dat.df["trajlabel"] <- .formatTrajname(unlist(traj.dat.df["file.vec"]))
+  traj.dat.df["trajlabel"] <- .formatTrajname(unlist(traj.dat.df["file.vec"]))  # add a label to order by height in the plot
   #-----------------------------------
   # process interpolated data
   #-----------------------------------
@@ -1289,7 +1287,7 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
                       by = "height", all.x = TRUE)
     colnames(prof.obs)[colnames(prof.obs) == "concentration"] <- "observed"
     #-----------------------------------
-    # background calculation - if not given, it uses soft
+    # background calculation
     #-----------------------------------
     back.df <- .background.softrules(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
                                      nsd = nsd, maxfm.ppm = maxfm.ppm)
@@ -1299,7 +1297,7 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
     prof.obs <- cbind(prof.obs, back.df)
     prof.obs <- merge(x = prof.obs, y = subset(prof.isec, select = -profile ), 
                       by = "file.vec", all.x = TRUE)
-    profile.all <- rbind(profile.all, prof.obs)
+    profile.all <- rbind(profile.all, prof.obs) # add the partial results to the results
     # plot 1 - map
     file.map <- file.path(path.out, paste(prof, "_map.", device, sep = ""),  # name of the file
                           fsep = .Platform$file.sep)
@@ -1452,7 +1450,6 @@ col2time <- function(year, month, day, hour, minute, second, timezone){
   #
   return(cbind(res, profile))
 }
-
 
 
 

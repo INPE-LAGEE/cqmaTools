@@ -81,53 +81,19 @@ expect_equal(.isOutlier(data.vec = interpolated, nsd=2, maxfm.ppm = 1.5, use.med
 #sd(atest)
 #
 
-interpolvalue <- c(1,1,1,11000000,1,1,1,1,1,10000, NA)
-ol <- .background.soft(data.vec = interpolvalue, nsd = 2, maxfm.ppm = 5)
-res1 <- c(F,F,F, T,F,F,F,F,F, T, T) # identify the outliers after doble testing for  median + 2 * sd
-res2 <- c(1,1,1, 1,1,1,1,1,1,1, 1) # replace the outliers by the median
-expect_equal(as.vector(unlist(ol["outlier"])), res1)
-expect_equal(as.vector(unlist(ol["background"])), res2)
-
 interpolated <- c(1,2,3,4,5,5,6,7,NA,9,0)
 res1 <- rep(median(interpolated, na.rm = TRUE), times = length(interpolated))
 res2 <- rep(TRUE, times = length(interpolated))
 
-expect_equal(as.vector(unlist(bm["background"])), res1)
-expect_equal(as.vector(unlist(bm["outlier"])), res2)
 interpolated <- c(1,2,3,4,5,5,6,7,8,9,0)
 res1 <- rep(median(interpolated, na.rm = TRUE), times = length(interpolated))
 res2 <- rep(TRUE, times = length(interpolated))
 res2[5:6] <- FALSE
-bm <- .background.median(data.vec = interpolated, nsd = 2, maxfm.ppm = 5)
-expect_equal(as.vector(unlist(bm["background"])), res1)
-expect_equal(as.vector(unlist(bm["outlier"])), res2)
 
 
 
 
-interpolated <- c(1,1,1,9,9,9)
-bm <- .background.cluster(data.vec = interpolated, nsd = 2, maxfm.ppm = 0.2)
-plot(bm$background, y = 1:nrow(bm))
-#
 
-
-
-interpolated <- c(387.918385103308, 387.530746818852,387.61208078711, 388.202610296293, 388.211573638231, 388.227018617125, 387.531348727213, 387.536258479053, 387.506342657925, 387.48756476492)
-bs <- .background.soft(data.vec = interpolated, nsd = 2, maxfm.ppm = 5)
-bm <- .background.median(data.vec = interpolated, nsd = 2, maxfm.ppm = 5)
-bh <- .background.hard(data.vec = interpolated, nsd = 2, maxfm.ppm = 5)
-
-# compare results
-plot(y = c(1:length(interpolated)), x = interpolated, type = "b", col = "black", xlab = "Concentration", ylab = "height")
-lines(y = as.numeric(rownames(bs)), x = as.vector(unlist(bs["background"])), type = "l", col = "green")
-lines(y = as.numeric(rownames(bm)), x = as.vector(unlist(bm["background"])), type = "l", col = "red")
-lines(y = as.numeric(rownames(bh)), x = as.vector(unlist(bh["background"])), type = "l", col = "blue")
-
-data.vec <- c(389.7956, NA, NA, 389.7885, NA, 391.3450, 391.1680, 391.1326, 391.0667, 391.2828)
-data.vec <- c(390.0012, 390.0182, 390.0012, 390.8260, 390.9100, 390.9241, 390.9352, 390.9389, NA, NA, NA, NA)
-nsd <- 2
-maxfm.ppm <- 1.5
-.background.softrules(data.vec = data.vec, nsd = nsd, maxfm.ppm = maxfm.ppm)
 
 data.vec <- c(1,2,1,2,100,2,1,2)
 .background.softrules(data.vec = data.vec, nsd = nsd, maxfm.ppm = maxfm.ppm)
@@ -172,16 +138,6 @@ expect_equal(.fillNAs(data.vec), c(NaN,NaN,NaN))
 
 
 
-#interpolated <- rnorm(mean = 388, sd = 3, n = 40)
-#bs <- .background.soft  (data.vec = interpolated, nsd = 2, maxfm.ppm = 1.5)
-#bm <- .background.median(data.vec = interpolated, nsd = 2, maxfm.ppm = 1.5)
-#bh <- .background.hard  (data.vec = interpolated, nsd = 2, maxfm.ppm = 1.5)
-## compare results
-#plot(y = c(1:length(interpolated)), x = interpolated, type = "b", col = "black", xlab = "Concentration", ylab = "height")
-#lines(y = as.numeric(rownames(bs)), x = as.vector(unlist(bs["background"])), type = "l", col = "green")
-#lines(y = as.numeric(rownames(bm)), x = as.vector(unlist(bm["background"])), type = "l", col = "red")
-#lines(y = as.numeric(rownames(bh)), x = as.vector(unlist(bh["background"])), type = "l", col = "blue")
-#
 
 
 
