@@ -148,6 +148,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 # @return             A numeric. The concentration on the ground
 .floorconcentration <- function(dif_obs_bkg, hfloor, temp, height, molair){
   ((dif_obs_bkg * exp(-hfloor / 1013.25 / 7) / 0.0000820574587 / (temp + 273 + ((height - hfloor) * 0.0059))) + (molair * dif_obs_bkg))/2
+  # ((S16         * EXP(-P$1    / 1013.25 / 7)/  F$2             / (U16  + 273 + ((P16 -    P$1   ) * 0.0059))) + (Y16 *    S16        ))/2
 }
 
 
@@ -1451,6 +1452,16 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   return(cbind(res, profile))
 }
 
+
+# get data from prfile
+.getDataFromProfile <- function(prof.name){
+  nameelements <- lapply(prof.name, function(x){
+    return(unlist(strsplit(x, split = "_")))
+  })
+  nel.df <- as.data.frame(do.call("rbind", nameelements), stringsAsFactors = FALSE)
+  names(nel.df) <- c("site", "year", "month", "day")
+  return(nel.df)
+}
 
 
 

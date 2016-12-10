@@ -177,6 +177,15 @@ expect_true(abs(.floorconcentration(dif_obs_bkg = -4.52,
 
 
 
+
+dif_obs_bkg = -2.96
+hfloor = 250
+temp = 30.07
+height = 407.8
+molair = 38.04
+.floorconcentration(dif_obs_bkg, hfloor, temp, height, molair)
+
+
 # TODO: check function inversibility
 #date.dec <- 2015.916438
 #date.str <- "2015-12-01"
