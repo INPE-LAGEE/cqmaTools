@@ -1409,13 +1409,19 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 # @param file.in A character. The path to a collect report file. i.e /home/user/PFP_3723_ALF_2010_02_17.txt
 # @return A data.frame with the results of comamnds "HISTORY> A" and "HISTORY> C"
 .getHistoryAC <- function(file.in){
+  # profile
+  profile <- paste(unlist(strsplit(sub("([^.]+)\\.[[:alnum:]]+$", "\\1", 
+                                       basename(file.in)), split = "_"))[3:6], collapse = "_")
+  #
   file.dat <- readLines(file.in, skipNul = TRUE, warn = FALSE)
   hs <- grep("HISTORY>", file.dat)
   # find the commands in the text
   hA <- grep("HISTORY> A", file.dat, ignore.case = TRUE)
   hC <- grep("HISTORY> C", file.dat, ignore.case = TRUE)
   if(length(hA) == 0 | length(hC) == 0){
-    return(NA)
+    pres <- cbind(as.data.frame(t(rep(NA, time = 16))), profile)
+    names(pres) <- c("sample", "plan", "start", "end", "min", "max", "mean", "temperature (C)", "humidity (%RH)", "pressure (mbar)", "planmts", "startmts", "endmts", "minmts", "maxmts", "meanmts", "profile")
+    return(pres)
   }
   # get the text for HISTORY> A
   hA.dat <- file.dat[(hA + 1):hs[match(hA, hs) + 1]]
@@ -1437,8 +1443,12 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   hC.df <- as.data.frame(hC.mat[2:nrow(hC.mat),], stringsAsFactors = FALSE)
   colnames(hC.df) <- trimws(hC.mat[1, ])
   hC.df <- data.matrix(hC.df)
-  profile <- paste(unlist(strsplit(sub("([^.]+)\\.[[:alnum:]]+$", "\\1", 
-                                       basename(file.in)), split = "_"))[3:6], collapse = "_")
+  # alidation of new briefcase model
+  if(colnames(hA.df)[length(colnames(hA.df))] != "mean"){                         # accounts for different names in columns on different models of briefcases
+    colnames(hA.df)[length(colnames(hA.df))] <- "mean"
+    colnames(hC.df) <- c("sample", "temperature (C)", "pressure (mbar)", "humidity (%RH)")  # re-name to old names
+    hC.df <- hC.df[, c("sample", "temperature (C)", "humidity (%RH)", "pressure (mbar)")]   # re-oprder to match the old briefcases' structure
+  }
   # feet to meters
   f2m <- 0.3048
   res <- cbind(merge(hA.df, hC.df, by = "sample"))
