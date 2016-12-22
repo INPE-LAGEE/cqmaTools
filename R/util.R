@@ -1443,11 +1443,11 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   hC.df <- as.data.frame(hC.mat[2:nrow(hC.mat),], stringsAsFactors = FALSE)
   colnames(hC.df) <- trimws(hC.mat[1, ])
   hC.df <- data.matrix(hC.df)
-  # alidation of new briefcase model
+  # validation of new briefcase model
   if(colnames(hA.df)[length(colnames(hA.df))] != "mean"){                         # accounts for different names in columns on different models of briefcases
     colnames(hA.df)[length(colnames(hA.df))] <- "mean"
     colnames(hC.df) <- c("sample", "temperature (C)", "pressure (mbar)", "humidity (%RH)")  # re-name to old names
-    hC.df <- hC.df[, c("sample", "temperature (C)", "humidity (%RH)", "pressure (mbar)")]   # re-oprder to match the old briefcases' structure
+    hC.df <- hC.df[,   c("sample", "temperature (C)", "humidity (%RH)", "pressure (mbar)")]   # re-oprder to match the old briefcases' structure
   }
   # feet to meters
   f2m <- 0.3048
@@ -1463,7 +1463,11 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 }
 
 
-# get data from prfile
+
+# get the data from profile name
+#
+# @param prof.name A character. The name of the profile. i.e. RBA_2016_05_16
+# @#return A data.frame with columns c("site", "year", "month", "day")
 .getDataFromProfile <- function(prof.name){
   nameelements <- lapply(prof.name, function(x){
     return(unlist(strsplit(x, split = "_")))
