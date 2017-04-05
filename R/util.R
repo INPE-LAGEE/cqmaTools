@@ -743,8 +743,12 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   intersect.dat <- parallel::mclapply(1:length(traj.dat.list),
                                       function(x, traj.list, rowid.list){
                                         if(is.null(rowid.list[[x]])){return(NULL)}; 
-                                        return(traj.list[[x]][rowid.list[[x]] + 1, ])}, # return the next id after the intersection. This corresponds to the line's point falling on the sea
-                                      traj.list = traj.dat.list,rowid.list = traj.rowid.list)
+                                        return(
+                                          traj.list[[x]][as.numeric(rowid.list[[x]]) + 1, ]
+                                        )
+                                      }
+                                      , # return the next id after the intersection. This corresponds to the line's point falling on the sea
+                                      traj.list = traj.dat.list, rowid.list = traj.rowid.list)
   return(list(file.vec, intersect.dat))
 }
 
@@ -1531,6 +1535,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   line.vec = line.vec
   )
 }
+
 
 
 
