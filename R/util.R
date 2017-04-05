@@ -653,6 +653,18 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 
 
 
+
+# TODO: doc & add dependency on .removeHeaders
+.removeHeader <- function(file_path, col_names, skip){
+  file.dat <- utils::read.table(file = file_path, sep = "", header = FALSE, 
+                                skip = skip, stringsAsFactors = FALSE)
+  colnames(file.dat) <- col_names
+  return(file.dat)
+}
+
+
+
+
 # Remove headers from files
 #
 # @param file.vec   A character vector. The paths to the input files
@@ -1205,7 +1217,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 # @param prof.width         A numeric. Profile image size
 # @param nsd                A numeric. Number of standard deviations to use to filter the interpolated data
 # @param stations.df        A data.frame with metereological station data. It must contain at least the columns c("name", "lon", "lat")
-# @param plot2file          A logical. Should plots be stored as files?
+# @param plot2file          A logical or NA. Should plots be stored as files? Use NA to not plot anything
 # @return                   A list of objects. A character vector with the paths to the plot files, and a data.frame with merged data
 .plotTrajbackground <- function(file.in, path.out, traj.interpol, 
                                 traj.intersections, use.backgorund, traj.plot, 
@@ -1225,14 +1237,16 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   raw.df["profile"] <- apply(raw.df[, PROFILE.COLNAMES],                        # add profile column to raw data
                              MARGIN = 1, 
                              function(x){
-                               gsub(" ", "0", paste(unlist(x), collapse = "_"))
+                               x[[3]] <- formatC(x[[3]], width = 2, flag = "0") # 
+                               x[[4]] <- formatC(x[[4]], width = 2, flag = "0")
+                               return(gsub(" ", "0", paste(unlist(x), collapse = "_")))
                              })
   #-----------------------------------
   # trajectory data
   #-----------------------------------
   trajCnames <- HYSPLIT.COLNAMES                                                # column names of the trajectory files
   traj.file.vec <- c(traj.intersections[[1]], traj.plot)                        # all the trajectory file names 
-  traj.file.vec <- traj.file.vec[!is.na(traj.file.vec)]
+  traj.file.vec <- traj.file.vec[!is.na(traj.file.vec)]                         # remove NAs
   traj.dat.list <- .files2df(file.vec = traj.file.vec,                          # read the trajectory files into a list of data.frames 
                              header = FALSE, skip = 0, cnames = trajCnames)
   traj.dat.list <- .listname2data.frame(df.list = traj.dat.list,                # add file name as column
@@ -1299,7 +1313,9 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
     prof.obs <- merge(x = prof.obs, y = subset(prof.isec, select = -profile ), 
                       by = "file.vec", all.x = TRUE)
     profile.all <- rbind(profile.all, prof.obs) # add the partial results to the results
+    #-----------------------------------
     # plot 1 - map
+    #-----------------------------------
     file.map <- file.path(path.out, paste(prof, "_map.", device, sep = ""),  # name of the file
                           fsep = .Platform$file.sep)
     m <- basemap +                                                              # get the base map
@@ -1315,7 +1331,9 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
                                                  group = trajlabel, 
                                                  colour = trajlabel)) + 
       ggplot2::guides(fill = ggplot2::guide_legend(reverse=TRUE))
+    #-----------------------------------
     # plot 2 - cross sections
+    #-----------------------------------
     file.lonsec <- file.path(path.out, paste(prof, "_sectionlon.", device, sep = ""), fsep = .Platform$file.sep)
     file.latsec <- file.path(path.out, paste(prof, "_sectionlat.", device, sep = ""), fsep = .Platform$file.sep)
     slon <- ggplot2::ggplot(data = prof.traj, 
@@ -1342,7 +1360,9 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
                                                  colour = trajlabel)) + 
       ggplot2::geom_vline(xintercept = prof.traj[1, "lat"], linetype = "dotted") + # add the flight
       ggplot2::guides(fill = ggplot2::guide_legend(reverse=TRUE))
+    #-----------------------------------
     # plot 3 - profile    
+    #-----------------------------------
     if(nrow(prof.obs) > 0){
       file.profile <- file.path(path.out, paste(prof, "_profile.", device, sep = ""), fsep = .Platform$file.sep)    
       prof.df <- prof.obs[, c("file.vec", "observed", "interpolated", "background", "height")]
@@ -1364,22 +1384,24 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
                                                   colour = type)) + 
         ggplot2::geom_path() +
         ggplot2::geom_point()
+      #-----------------------------------
       # plot
-      if(plot2file){
-        ggplot2::ggsave(filename = file.map, plot = m, device = device, width = map.width, height = map.height)                     # save the map to a file
-        ggplot2::ggsave(filename = file.lonsec, plot = slon, device = device, width = sec.width, height = sec.height)
-        ggplot2::ggsave(filename = file.latsec, plot = slat, device = device, width = sec.width, height = sec.height)
-        ggplot2::ggsave(filename = file.profile, plot = p, device = device, width = prof.width, height = prof.height)
-      }else{
-        print(m)
-        print(slon)
-        print(slat)
-        print(p)
+      #-----------------------------------
+      if(!is.na(plot2file)){
+        if(plot2file){
+          ggplot2::ggsave(filename = file.map, plot = m, device = device, width = map.width, height = map.height)                     # save the maps to files
+          ggplot2::ggsave(filename = file.lonsec, plot = slon, device = device, width = sec.width, height = sec.height)
+          ggplot2::ggsave(filename = file.latsec, plot = slat, device = device, width = sec.width, height = sec.height)
+          ggplot2::ggsave(filename = file.profile, plot = p, device = device, width = prof.width, height = prof.height)
+          filenames <- append(filenames, c(file.map, file.lonsec, file.latsec, file.profile))
+        }else{
+          print(m)
+          print(slon)
+          print(slat)
+          print(p)
+        }
       }
-      filenames <- append(filenames, file.profile)
     }
-    # output file names
-    filenames <- append(filenames, c(file.map, file.lonsec, file.latsec))
   }
   # write profile data
   file.profile <- file.path(path.out, paste(basename(file.in), "_results.txt", sep = ""), fsep = .Platform$file.sep)    
@@ -1395,8 +1417,8 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   if(nrow(profile.all) > 0){
     profile.all <- profile.all[with(profile.all, order( profile, -height)), ]     # order
     rownames(profile.all) <- NULL
-    utils::write.table(profile.all, file = file.profile)
-    filenames <- append(filenames, file.profile)
+    #utils::write.table(profile.all, file = file.profile)
+    #filenames <- append(filenames, file.profile)
   }
   return(list(filenames, profile.all))
 }
@@ -1475,6 +1497,39 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   nel.df <- as.data.frame(do.call("rbind", nameelements), stringsAsFactors = FALSE)
   names(nel.df) <- c("site", "year", "month", "day")
   return(nel.df)
+}
+
+
+
+# Compute the trajectory time
+#
+# @param file.vec A vector of character. The paths to the input files
+# @param line.vec A vector. Ids of rows in each file in file.vec
+# @return A list of difftime
+.computeTrajTime <- function(file.vec, line.vec){
+  line.vec <- intersect_rows
+  file.vec <- traj.intersectionsSA[[1]]
+  data.list <- .files2df(file.vec = file.vec, header = FALSE, skip = 0, cnames = HYSPLIT.COLNAMES)
+  lapply(seq_along(data.list), function(x, data.list, line.vec){
+    adf <- data.list[[x]]
+    l <- line.vec[x]
+    date.s <- unlist(adf[l, 3:7])
+    date.e <- unlist(adf[1, 3:7])
+    if(date.s[1] < 100){date.s[1] <- date.s[1] + 2000}
+    if(date.e[1] < 100){date.e[1] <- date.e[1] + 2000}
+    date.se <- as.data.frame(rbind(date.s, date.e))
+    date.se[, 2] <- formatC(date.se[, 2], width = 2, flag = 0)
+    date.se[, 3] <- formatC(date.se[, 3], width = 2, flag = 0)
+    date.se[, 4] <- formatC(date.se[, 4], width = 2, flag = 0)
+    date.se[, 5] <- formatC(date.se[, 5], width = 2, flag = 0)
+    date.se[, 6] <- rep("00", time = 2)
+    date.s <- as.POSIXct(paste(paste(date.se[1, 1:3], collapse = "-"), paste(date.se[1, 4:6], collapse = ":"), sep = " "))
+    date.e <- as.POSIXct(paste(paste(date.se[2, 1:3], collapse = "-"), paste(date.se[2, 4:6], collapse = ":"), sep = " "))
+    return(date.e - date.s)
+  }, 
+  data.list = data.list, 
+  line.vec = line.vec
+  )
 }
 
 
