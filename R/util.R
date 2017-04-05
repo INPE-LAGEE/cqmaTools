@@ -1209,7 +1209,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 # @param traj.interpol      A list of numeric. The interpolated values of teh trajectories over the sea
 # @param traj.intersections A list made of a character vector and a list. The character vector is the path to each trajectory file while the list contains the first row in the trajectory file which lies over the sea
 # @param use.backgorund     A character. The type of filter used when calculating the background concentration. The options are c("median", "hard"). Median is the default
-# @param traj.plot          A vector of character. The file path to trajectories to plot additioanl to those in traj.intersections[[1]]
+# @param traj.plot          A vector of character. The file path to trajectories to plot additional to those in traj.intersections[[1]]
 # @param device             A character. Image format, i.e. PNG
 # @param map.xlim           A numeric vector. Map's min & max longitude
 # @param map.ylim           A numeric vector. Map's min & max latitude
@@ -1511,31 +1511,32 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 # @param line.vec A vector. Ids of rows in each file in file.vec
 # @return A list of difftime
 .computeTrajTime <- function(file.vec, line.vec){
-  line.vec <- intersect_rows
-  file.vec <- traj.intersectionsSA[[1]]
   data.list <- .files2df(file.vec = file.vec, header = FALSE, skip = 0, cnames = HYSPLIT.COLNAMES)
   lapply(seq_along(data.list), function(x, data.list, line.vec){
+    res <- NA
     adf <- data.list[[x]]
     l <- line.vec[x]
-    date.s <- unlist(adf[l, 3:7])
-    date.e <- unlist(adf[1, 3:7])
-    if(date.s[1] < 100){date.s[1] <- date.s[1] + 2000}
-    if(date.e[1] < 100){date.e[1] <- date.e[1] + 2000}
-    date.se <- as.data.frame(rbind(date.s, date.e))
-    date.se[, 2] <- formatC(date.se[, 2], width = 2, flag = 0)
-    date.se[, 3] <- formatC(date.se[, 3], width = 2, flag = 0)
-    date.se[, 4] <- formatC(date.se[, 4], width = 2, flag = 0)
-    date.se[, 5] <- formatC(date.se[, 5], width = 2, flag = 0)
-    date.se[, 6] <- rep("00", time = 2)
-    date.s <- as.POSIXct(paste(paste(date.se[1, 1:3], collapse = "-"), paste(date.se[1, 4:6], collapse = ":"), sep = " "))
-    date.e <- as.POSIXct(paste(paste(date.se[2, 1:3], collapse = "-"), paste(date.se[2, 4:6], collapse = ":"), sep = " "))
-    return(date.e - date.s)
+    if(!is.na(l)){
+      date.s <- unlist(adf[l, 3:7])
+      date.e <- unlist(adf[1, 3:7])
+      if(date.s[1] < 100){date.s[1] <- date.s[1] + 2000}
+      if(date.e[1] < 100){date.e[1] <- date.e[1] + 2000}
+      date.se <- as.data.frame(rbind(date.s, date.e))
+      date.se[, 2] <- formatC(date.se[, 2], width = 2, flag = 0)
+      date.se[, 3] <- formatC(date.se[, 3], width = 2, flag = 0)
+      date.se[, 4] <- formatC(date.se[, 4], width = 2, flag = 0)
+      date.se[, 5] <- formatC(date.se[, 5], width = 2, flag = 0)
+      date.se[, 6] <- rep("00", time = 2)
+      date.s <- as.POSIXct(paste(paste(date.se[1, 1:3], collapse = "-"), paste(date.se[1, 4:6], collapse = ":"), sep = " "))
+      date.e <- as.POSIXct(paste(paste(date.se[2, 1:3], collapse = "-"), paste(date.se[2, 4:6], collapse = ":"), sep = " "))
+      res <- date.e - date.s
+    }
+    return(res)
   }, 
   data.list = data.list, 
   line.vec = line.vec
   )
 }
-
 
 
 
