@@ -1539,4 +1539,29 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 }
 
 
-
+# Plot a set of trajectories
+#
+# @param traj.file.vec A vector of character. The paths to the trajectory files
+# @return A ggplot object
+.plotTrajs <- function(traj.file.vec){
+  # traj.file.vec <- "/home/lagee/Documents/alber/test/tmp/rba/co/simNoHead/rba_2010_10_27_16_1219.20"
+  wgs84 <-  sp::CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+  HYSPLIT.COLNAMES <- c("V1", "V2", "year", "month", "day", "hour", "min", 
+                        "V8", "V9", "lat", "lon", "height", "pressure") 
+  traj.dat.list <- .files2df(file.vec = traj.file.vec,                          # read the trajectory files into a list of data.frames 
+                             header = FALSE, skip = 0, cnames = HYSPLIT.COLNAMES)
+  traj.dat.list <- .listname2data.frame(df.list = traj.dat.list,                # add file name as column
+                                        colname = "file.vec")
+  traj.dat.df <- do.call("rbind", traj.dat.list)                                # collapse to a single data.frame
+  traj.dat.df["profile"] <- .filename2profile(unlist(traj.dat.df["file.vec"]))  # add profile column
+  traj.dat.df["trajlabel"] <- .formatTrajname(unlist(traj.dat.df["file.vec"]))  # add a label to order by height in the plot
+  trajmap <- ggplot2::ggplot(data = ggplot2::map_data(map = "world"), mapping = ggplot2::aes(long, lat, group = group)) +
+    ggplot2::geom_polygon(fill = "white", colour = "black") +                
+    ggplot2::coord_quickmap(xlim = map.xlim, ylim = map.ylim, expand = TRUE) + 
+    ggplot2::labs(x = "longitude", y = "latitude", color = "trajectory") + 
+    ggplot2::geom_path(data = traj.dat.df,                                      # add the trajectories
+                       mapping = ggplot2::aes(x = lon, y = lat, 
+                                              group = trajlabel, 
+                                              colour = trajlabel))
+  return(trajmap)
+}

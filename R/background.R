@@ -265,9 +265,9 @@ for(i in 1:length(rawdatafile.vec)){
                    path.out = hysplit.nohead.path, 
                    skip = simHeaderLines)    
   }, error = function(e) {
-    error(logger, "Error in estop 3. Something wrong with HYSPLIT files")
+    error(logger, "Error in stop 3. Something wrong with HYSPLIT files")
   }, finally={
-    next
+   # next
   })
   hysplit.nohead.files <- data.frame(as.vector(unlist(hysplit.nohead.files)), 
                                      rep(TRUE, times = length(hysplit.nohead.files)), 
