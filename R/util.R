@@ -1430,66 +1430,6 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 
 
 
-# Extract history A and C from collect report files 
-#
-# @param file.in A character. The path to a collect report file. i.e /home/user/PFP_3723_ALF_2010_02_17.txt
-# @return A data.frame with the results of comamnds "HISTORY> A" and "HISTORY> C"
-.getHistoryAC <- function(file.in){
-  # profile
-  profile <- paste(unlist(strsplit(sub("([^.]+)\\.[[:alnum:]]+$", "\\1", 
-                                       basename(file.in)), split = "_"))[3:6], collapse = "_")
-  #
-  file.dat <- readLines(file.in, skipNul = TRUE, warn = FALSE)
-  hs <- grep("HISTORY>", file.dat)
-  # find the commands in the text
-  hA <- grep("HISTORY> A", file.dat, ignore.case = TRUE)
-  hC <- grep("HISTORY> C", file.dat, ignore.case = TRUE)
-  if(length(hA) == 0 | length(hC) == 0){
-    pres <- cbind(as.data.frame(t(rep(NA, time = 16))), profile)
-    names(pres) <- c("sample", "plan", "start", "end", "min", "max", "mean", "temperature (C)", "humidity (%RH)", "pressure (mbar)", "planmts", "startmts", "endmts", "minmts", "maxmts", "meanmts", "profile")
-    return(pres)
-  }
-  # get the text for HISTORY> A
-  hA.dat <- file.dat[(hA + 1):hs[match(hA, hs) + 1]]
-  hA.dat <- hA.dat[1:(length(hA.dat) - 1)]
-  # get the text for HISTORY> C
-  hC.dat <- file.dat[(hC + 1):hs[match(hC, hs) + 1]]
-  hC.dat <- hC.dat[1:(length(hC.dat) - 1)]
-  #
-  pat <- "*  |*/"                                                                # regular expression' pattern to split 
-  #
-  hA.dat.split <- strsplit(hA.dat, split = pat)
-  hA.mat <- trimws(do.call("rbind", lapply(hA.dat.split, function(x){x <- x[x != ""]})))
-  hA.df <- as.data.frame(hA.mat[2:nrow(hA.mat),], stringsAsFactors = FALSE)
-  colnames(hA.df) <- trimws(hA.mat[1, ])
-  hA.df <- data.matrix(hA.df)
-  #
-  hC.dat.split <- strsplit(hC.dat, split = pat)
-  hC.mat <- trimws(do.call("rbind", lapply(hC.dat.split, function(x){x <- x[x != ""]})))
-  hC.df <- as.data.frame(hC.mat[2:nrow(hC.mat),], stringsAsFactors = FALSE)
-  colnames(hC.df) <- trimws(hC.mat[1, ])
-  hC.df <- data.matrix(hC.df)
-  # validation of new briefcase model
-  if(colnames(hA.df)[length(colnames(hA.df))] != "mean"){                         # accounts for different names in columns on different models of briefcases
-    colnames(hA.df)[length(colnames(hA.df))] <- "mean"
-    colnames(hC.df) <- c("sample", "temperature (C)", "pressure (mbar)", "humidity (%RH)")  # re-name to old names
-    hC.df <- hC.df[,   c("sample", "temperature (C)", "humidity (%RH)", "pressure (mbar)")]   # re-oprder to match the old briefcases' structure
-  }
-  # feet to meters
-  f2m <- 0.3048
-  res <- cbind(merge(hA.df, hC.df, by = "sample"))
-  res["planmts"] <- as.vector(res["plan"]) * f2m
-  res["startmts"] <- as.vector(res["start"]) * f2m
-  res["endmts"] <- as.vector(res["end"]) * f2m
-  res["minmts"] <- as.vector(res["min"]) * f2m
-  res["maxmts"] <- as.vector(res["max"]) * f2m
-  res["meanmts"] <- as.vector(res["mean"]) * f2m
-  #
-  return(cbind(res, profile))
-}
-
-
-
 # get the data from profile name
 #
 # @param prof.name A character. The name of the profile. i.e. RBA_2016_05_16
@@ -1564,4 +1504,67 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
                                               group = trajlabel, 
                                               colour = trajlabel))
   return(trajmap)
+}
+
+
+
+
+
+# Extract history A and C from collect report files 
+#
+# @param file.in A character. The path to a collect report file. i.e /home/user/PFP_3723_ALF_2010_02_17.txt
+# @return A data.frame with the results of comamnds "HISTORY> A" and "HISTORY> C"
+.getHistoryAC <- function(file.in){
+  # profile
+  profile <- paste(unlist(strsplit(sub("([^.]+)\\.[[:alnum:]]+$", "\\1", 
+                                       basename(file.in)), split = "_"))[3:6], collapse = "_")
+  #
+  file.dat <- readLines(file.in, skipNul = TRUE, warn = FALSE)
+  hs <- grep("HISTORY>", file.dat)
+  # find the commands in the text
+  hA <- grep("HISTORY> A", file.dat, ignore.case = TRUE)
+  hC <- grep("HISTORY> C", file.dat, ignore.case = TRUE)
+  if(length(hA) == 0 | length(hC) == 0){
+    pres <- cbind(as.data.frame(t(rep(NA, time = 16))), profile)
+    names(pres) <- c("sample", "plan", "start", "end", "min", "max", "mean", "temperature (C)", "humidity (%RH)", "pressure (mbar)", "planmts", "startmts", "endmts", "minmts", "maxmts", "meanmts", "profile")
+    return(pres)
+  }
+  # get the text for HISTORY> A
+  hA.dat <- file.dat[(hA + 1):hs[match(hA, hs) + 1]]
+  hA.dat <- hA.dat[1:(length(hA.dat) - 1)]                                      # removes the last line
+  hA.dat <- gsub("\\(low\\)|\\(high\\)", "", hA.dat)                            # remove instances of (low) and (high)
+  # get the text for HISTORY> C
+  hC.dat <- file.dat[(hC + 1):hs[match(hC, hs) + 1]]
+  hC.dat <- hC.dat[1:(length(hC.dat) - 1)]
+  #
+  pat <- "*  |*/"                                                                # regular expression' pattern to split 
+  #
+  hA.dat.split <- strsplit(hA.dat, split = pat)
+  hA.mat <- trimws(do.call("rbind", lapply(hA.dat.split, function(x){x <- x[x != ""]})))
+  hA.df <- as.data.frame(hA.mat[2:nrow(hA.mat),], stringsAsFactors = FALSE)
+  colnames(hA.df) <- trimws(hA.mat[1, ])
+  hA.df <- data.matrix(hA.df)
+  #
+  hC.dat.split <- strsplit(hC.dat, split = pat)
+  hC.mat <- trimws(do.call("rbind", lapply(hC.dat.split, function(x){x <- x[x != ""]})))
+  hC.df <- as.data.frame(hC.mat[2:nrow(hC.mat),], stringsAsFactors = FALSE)
+  colnames(hC.df) <- trimws(hC.mat[1, ])
+  hC.df <- data.matrix(hC.df)
+  # validation of new briefcase model
+  if(colnames(hA.df)[length(colnames(hA.df))] != "mean"){                         # accounts for different names in columns on different models of briefcases
+    colnames(hA.df)[length(colnames(hA.df))] <- "mean"
+    colnames(hC.df) <- c("sample", "temperature (C)", "pressure (mbar)", "humidity (%RH)")  # re-name to old names
+    hC.df <- hC.df[,   c("sample", "temperature (C)", "humidity (%RH)", "pressure (mbar)")]   # re-oprder to match the old briefcases' structure
+  }
+  # feet to meters
+  f2m <- 0.3048
+  res <- cbind(merge(hA.df, hC.df, by = "sample"))
+  res["planmts"] <- as.vector(res["plan"]) * f2m
+  res["startmts"] <- as.vector(res["start"]) * f2m
+  res["endmts"] <- as.vector(res["end"]) * f2m
+  res["minmts"] <- as.vector(res["min"]) * f2m
+  res["maxmts"] <- as.vector(res["max"]) * f2m
+  res["meanmts"] <- as.vector(res["mean"]) * f2m
+  #
+  return(cbind(res, profile))
 }
