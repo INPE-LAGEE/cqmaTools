@@ -1509,7 +1509,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 #
 # @param file.vec A vector of character. The paths to the input files
 # @param line.vec A vector. Ids of rows in each file in file.vec
-# @return A list of difftime
+# @return A list of difftime (in days)
 .computeTrajTime <- function(file.vec, line.vec){
   data.list <- .files2df(file.vec = file.vec, header = FALSE, skip = 0, cnames = HYSPLIT.COLNAMES)
   lapply(seq_along(data.list), function(x, data.list, line.vec){
@@ -1529,7 +1529,7 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
       date.se[, 6] <- rep("00", time = 2)
       date.s <- as.POSIXct(paste(paste(date.se[1, 1:3], collapse = "-"), paste(date.se[1, 4:6], collapse = ":"), sep = " "))
       date.e <- as.POSIXct(paste(paste(date.se[2, 1:3], collapse = "-"), paste(date.se[2, 4:6], collapse = ":"), sep = " "))
-      res <- date.e - date.s
+      res <- difftime(time1 = date.e, time2 = date.s, units = "days")
     }
     return(res)
   }, 
