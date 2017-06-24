@@ -308,3 +308,4 @@ setMethod("plotTrajYear",
               stations.df)
           }
 )
+

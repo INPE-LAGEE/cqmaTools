@@ -91,6 +91,7 @@ stationfile <- c(
 limit.shp <- file.path(test.path, "shp", "limite.shp", fsep = .Platform$file.sep)
 samerica.shp <- file.path(test.path, "shp", "continentalSouthAmericaLines.shp", fsep = .Platform$file.sep)
 plot.path <- file.path(test.path, "plots", fsep = .Platform$file.sep) # plot.path <- "/Volumes/LVG/cqmaTools/plots/"
+data.out.path <- "/home/lagee/Documents/alber/test/briefcase/briefdata"         # path to the resulting numeric files
 hysplit.sim.path <- file.path(test.path, "hysplitsimulations", fsep = .Platform$file.sep) # still requires the gas attached to the path
 rawdatafile.vec <- list.files(file.path(test.path, "rawdata", fsep = .Platform$file.sep), 
                               full.names = TRUE, recursive = FALSE, include.dirs = FALSE)
@@ -471,9 +472,10 @@ for(i in 1:length(rawdatafile.vec)){
   #-----------------------------------------------------------------------------
   debug(logger, "step 13 - Write result table")
   #-----------------------------------------------------------------------------
-  write.table(profile.df, file = file.path(plot.path, paste(basename(rawdatafile.vec), "_bkgTable.txt", sep = ""), fsep = .Platform$file.sep))
+  write.table(profile.df, file = file.path(data.out.path, paste(basename(rawdatafile.vec), "_bkgTable.txt", sep = ""), fsep = .Platform$file.sep))
 }
 
 #-----------------------------------------------------------------------------
 debug(logger, "END OF SCRIPT")
 #-----------------------------------------------------------------------------
+

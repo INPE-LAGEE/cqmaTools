@@ -11,3 +11,4 @@ file.vec <- list.files(magicc.path, recursive = TRUE,                       # ta
 bc.list <- lapply(file.vec, .getHistoryAC)
 bc.df <- do.call("rbind", bc.list)
 write.table(bc.df, file = file.path(data.out.path, paste(site, "_briefdata.txt", sep = '')))
+
