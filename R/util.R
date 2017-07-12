@@ -370,11 +370,11 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 # @param point.xy A point on the line represented by 2-element vector (x, y)
 # @return         A number. The interpolated value for the point
 .lineInterpolation <- function(line.xyv, point.xy){
-  dl <- as.vector(stats::dist(line.xyv[, 1:2]))                      # line's length
-  hl <- line.xyv[2, 3] - line.xyv[1, 3]                       # value interval
-  dp1 <- as.vector(stats::dist(rbind(line.xyv[1, 1:2], point.xy)))   # distance from line' start to point
-  dp2 <- as.vector(stats::dist(rbind(line.xyv[2, 1:2], point.xy)))   # distance from line' end to point
-  dp <- dp1/(dp1 + dp2)                                       # normalized distance from line' start to point
+  dl <- as.vector(stats::dist(line.xyv[, 1:2]))                                 # line's length
+  hl <- line.xyv[2, 3] - line.xyv[1, 3]                                         # value interval
+  dp1 <- as.vector(stats::dist(rbind(line.xyv[1, 1:2], point.xy)))              # distance from line' start to point
+  dp2 <- as.vector(stats::dist(rbind(line.xyv[2, 1:2], point.xy)))              # distance from line' end to point
+  dp <- dp1/(dp1 + dp2)                                                         # normalized distance from line' start to point
   return(line.xyv[1, 3] + (dp * hl))
 }
 
@@ -415,10 +415,12 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   file.dat.list <- split(file.dat, file.dat$site)
   nsd = 3                                                                       # number of standard deviationto identify an outlier 
   treshold = 10                                                                 # the minimum difference (in SDs) to accept a sign  change in coordinates
+  #-----------------------------------------------------------------------------
   outll <- parallel::mclapply(file.dat.list, 
                               .checklonlat, 
                               nsd = nsd, 
                               treshold = treshold)
+  #-----------------------------------------------------------------------------
   # replace coords
   file.dat <- do.call("rbind", file.dat.list)
   ll.df <- do.call("rbind", outll)
@@ -446,6 +448,19 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
 # @param treshold A numeric. The minimum difference (as a proportion in SDs) to accept a sign change in coordinates
 # @return         A data.frame with corrected coordinates and a logical indicating those which changed, i.e.  c("lon", "lat", "changed")
 .checklonlat <- function(x, nsd, treshold){
+  #-----------------------------------------------------------------------------
+  # workaround for TEF
+  #-----------------------------------------------------------------------------
+  if(is.data.frame(x) == FALSE){
+    if(is.list(x)){
+      if(length(x) == 1){
+        if(is.data.frame(x[[1]])){
+          x <- x[[1]]
+        }
+      }
+    }
+  }
+  #-----------------------------------------------------------------------------
   ll.df <- x[, c("lon", "lat")]
   mlon <- mean(ll.df$lon)
   mlat <- mean(ll.df$lat)
@@ -463,13 +478,18 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   lon <- ll.df$lon
   lat <- ll.df$lat
   changed <- rep(FALSE, nrow(x))
-  if(sdlon / sdnlon > treshold){
-    lon <- nll.df$lon
-    changed <- changed | ll.df$outlon
-  }
-  if(sdlat / sdnlat > treshold){
-    lat <- nll.df$lat
-    changed <- changed | ll.df$outlat
+  
+  # replace wrong values   
+  if(sdnlon != 0 && sdnlat != 0){
+    if(sdlon / sdnlon > treshold){
+      lon <- nll.df$lon
+      changed <- changed | ll.df$outlon
+    }
+    if(sdlat / sdnlat > treshold){
+      lat <- nll.df$lat
+      changed <- changed | ll.df$outlat
+    }
+    
   }
   return(data.frame(lon, lat, changed))
 }
@@ -1568,4 +1588,3 @@ PROFILE.COLNAMES <- c("site", "year", "month", "day")
   #
   return(cbind(res, profile))
 }
-

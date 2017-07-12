@@ -2,16 +2,16 @@ source("/home/lagee/Documents/ghProjects/cqmaTools/R/util.R")
 #-------------------------------------
 # set up
 #-------------------------------------
-site <- "RBA"
-gas <- "co2"
+site <- "tab"
+gas <- "co"
 data.in.path <- "/home/lagee/Documents/alber/test/briefcase"
 file.path(data.in.path, "rba.co2_bkgTable.txt")
 file.path(data.in.path, "RBA_briefdata.txt")
 #-------------------------------------
 # get data resulting from scripts background.R & briefcases.R
 #-------------------------------------
-briefcase.df <- read.table(file.path(data.in.path, "RBA_briefdata.txt"))
-profile.df <- read.table(file.path(data.in.path, "rba.co2_bkgTable.txt"))
+briefcase.df <- read.table(file.path(paste(data.in.path,'/',toupper(site),"_briefdata.txt", sep ='')))
+profile.df <- read.table(file.path(paste(data.in.path,'/' ,site, ".", gas,"_bkgTable.txt", sep='')))
 profbud.df <- merge(x = profile.df, y = briefcase.df, 
                     by.x = c("profile", "height"), 
                     by.y = c("profile", "planmts"), 
@@ -145,5 +145,6 @@ budget["gas"] <- gas
 budget["mgCmt2day"] <- budget$flux.mmolmt2day * 12
 budget["gCmt2day"] <- budget$mgCmt2day / 10E6
 budget <- cbind(budget, .getDataFromProfile(prof.name = as.character(budget$profile)))
+write.table(budget, paste("/home/lagee/Dropbox/DADOS LaGEE/ScriptsR/Fluxo/", toupper(gas), '/','fluxo_',site,'_',gas,'.txt', sep=''), col.names = TRUE, row.names = FALSE)
 #
 

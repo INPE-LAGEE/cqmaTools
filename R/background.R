@@ -91,7 +91,7 @@ stationfile <- c(
 limit.shp <- file.path(test.path, "shp", "limite.shp", fsep = .Platform$file.sep)
 samerica.shp <- file.path(test.path, "shp", "continentalSouthAmericaLines.shp", fsep = .Platform$file.sep)
 plot.path <- file.path(test.path, "plots", fsep = .Platform$file.sep) # plot.path <- "/Volumes/LVG/cqmaTools/plots/"
-data.out.path <- "/home/lagee/Documents/alber/test/briefcase/briefdata"         # path to the resulting numeric files
+data.out.path <- "/home/lagee/Documents/alber/test/BKG_results"         # path to the resulting numeric files
 hysplit.sim.path <- file.path(test.path, "hysplitsimulations", fsep = .Platform$file.sep) # still requires the gas attached to the path
 rawdatafile.vec <- list.files(file.path(test.path, "rawdata", fsep = .Platform$file.sep), 
                               full.names = TRUE, recursive = FALSE, include.dirs = FALSE)
@@ -268,7 +268,7 @@ for(i in 1:length(rawdatafile.vec)){
   }, error = function(e) {
     error(logger, "Error in stop 3. Something wrong with HYSPLIT files")
   }, finally={
-   # next
+    # next
   })
   hysplit.nohead.files <- data.frame(as.vector(unlist(hysplit.nohead.files)), 
                                      rep(TRUE, times = length(hysplit.nohead.files)), 
@@ -478,4 +478,3 @@ for(i in 1:length(rawdatafile.vec)){
 #-----------------------------------------------------------------------------
 debug(logger, "END OF SCRIPT")
 #-----------------------------------------------------------------------------
-
