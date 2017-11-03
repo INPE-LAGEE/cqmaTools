@@ -4,8 +4,16 @@
 source("/home/lagee/Documents/ghProjects/cqmaTools/R/util.R")
 magicc.path <- "/home/lagee/home 2/magicc/"                                     # Path to flight logs
 
+require(log4r)
+logger <- create.logger()
+logfile(logger) <- file.path("~/", "briefcases.log")
+level(logger) <- "DEBUG"
+info(logger, "Start! ###############################################")
+
+
 # TODO: expose site & data.out.path as script parameters
-site <- toupper("SAN")                                                          # site's name
+site <- toupper("RBA")                                                          # site's name
+debug(logger, paste0("site: ", site))
 data.out.path <- "/home/lagee/Documents/alber/test/briefcase"                   # Path to output directory
 pat <- paste("^PFP_[0-9]{3,4}_", site, "_[0-9]{4}_[0-9]{2}_[0-9]{2}\\.(TXT|txt)", sep = "") # filter files by name
 file.vec <- list.files(magicc.path, recursive = TRUE,                           # list and filter data files
@@ -14,9 +22,34 @@ file.vec <- list.files(magicc.path, recursive = TRUE,                           
 # call the script
 bc.list <- lapply(file.vec, .getHistoryAC)
 
+
+
+
+
 bc.list <- lapply(bc.list, function(x){
   #x <- bc.list[[1]]
-  if(sum((x[, 10] > 0 & x[, 10] < 300) & (x[, 10] > 1050), na.rm = TRUE) > 0){
+  #x <- bc.list[[81]]
+  #x <- bc.list[[90]]
+  #x <- bc.list[[91]]
+
+  # Criteria for filtering invalid observations:
+  # - flight plan has more than 12 observations
+  # - flight plan heigh is divisible by 100
+  # - flight plan is not 0
+  if(length(x[, 10]) > 12){
+    if(sum(x[18:20, 2] %% 100 == 0) == 3){
+      if(sum(x[18:20, 2] < 500) == 3){  
+        x <- x[1:17,]
+      }
+    }else{
+      x <- x[1:17,]
+    }
+  }
+  
+  # remove invalid pressure values (300 < p < 1200)
+  if((sum((x[, 10] > 0), na.rm = TRUE) == length(x[, 10])) + 
+     (sum((x[, 10] < 300), na.rm = TRUE)  == 0) +
+     (sum((x[, 10] > 1200), na.rm = TRUE) == 0) != 3){
     x[, 10] <- NA
   }
   return(x)
