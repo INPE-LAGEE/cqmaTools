@@ -21,12 +21,6 @@ A list made of a character vector and a list. The character vector is the path t
 \description{
 Find trajectories' first point beyond the limit (e.g. over the sea).
 }
-\examples{
-\dontrun{shapefile.in <- "/home/alber/Documents/Dropbox/alberLocal/inpe/cqma/data/shp/continentalSouthAmericaLines.shp"
-samerica <- readOGR(dsn = dirname(shapefile.in), layer = strsplit(basename(shapefile.in), split = '[.]')[[1]][[1]])
-path.in <- "/home/alber/Documents/Dropbox/alberLocal/inpe/cqma/data/07"
-traj.intersections <- .intersectTraj(path.in = path.in, limit.in = samerica)}
-}
 \author{
 Alber Sanchez, \email{alber.ipia@inpe.br}
 }

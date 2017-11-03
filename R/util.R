@@ -123,8 +123,8 @@ get_os <- function(){
 #' @return     A length-1 character vector
 #' @export
 df2text <- function(a.df){
-  t <- paste(colnames(df), collapse = " ")
-  b <- paste(apply(df, 1 , paste, collapse = " "), collapse = "\n")
+  t <- paste(colnames(a.df), collapse = " ")
+  b <- paste(apply(a.df, 1 , paste, collapse = " "), collapse = "\n")
   return(paste(c(t, "\n", b), collapse = ""))
 }
 
@@ -593,7 +593,7 @@ df2text <- function(a.df){
   file.dat["hrf"] <- sprintf("%02d", unlist(file.dat["hr"]))
   file.dat["mmf"] <- sprintf("%02d", unlist(file.dat["mm"]))
   # get the file names of the metereological data file
-  met_files <- unlist(lapply(1:nrow(file.dat), function(x, file.dat){return(.buildGDASfilename(file.dat[x, ], timezone = TIME.ZONE))}, file.dat = file.dat))
+  met_files <- unlist(lapply(1:nrow(file.dat), function(x, file.dat){return(.buildGDASfilename(file.dat[x, ], timezone = timezone))}, file.dat = file.dat))
   # get the file names of the metereological data file backTrajTime seconds before the trajectory
   met_filesp1 <- unlist(lapply(1:nrow(file.dat), 
                                function(x, file.dat, backTrajTime, timezone){
@@ -824,15 +824,17 @@ df2text <- function(a.df){
 # Get the metadata from file trajectories' file names adn add the profile as a colum
 #
 # @param trajfile.list  A character vector. The names of trajectory files
+# @param cnames  A character vector. Metadata included in the trajectory's file names
 # @return               A data frame
-.trajFilenames2metadata <- function(file.vec){
+.trajFilenames2metadata <- function(file.vec, cnames){
+  #cnames <- TRAJ.FILENAMES.METADATA
   bn <- basename(file.vec) 
   res <- as.data.frame(
     do.call("rbind", 
             parallel::mclapply(bn, 
                                function(x){unlist(strsplit(x, split = "_"))})
     ))
-  colnames(res) <- TRAJ.FILENAMES.METADATA                                      # add column names to trajectory filenames' metadata 
+  colnames(res) <- cnames                                      # add column names to trajectory filenames' metadata 
   return(res)  
 }
 

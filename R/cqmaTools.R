@@ -120,11 +120,6 @@ splitRawdata <- function(file.in, path.out, colname, keepFlags, cnames,
 #' @param cnames   A character vector. The name of the columns of the raw data file (hysplit)
 #' @param srs      A length-1 character. The spatial reference system
 #' @return         A list made of a character vector and a list. The character vector is the path to each trajectory file. The list contains the first row in the trajectory file which lies over the sea
-#' @examples
-#' \dontrun{shapefile.in <- "/home/alber/Documents/Dropbox/alberLocal/inpe/cqma/data/shp/continentalSouthAmericaLines.shp"
-#' samerica <- readOGR(dsn = dirname(shapefile.in), layer = strsplit(basename(shapefile.in), split = '[.]')[[1]][[1]])
-#' path.in <- "/home/alber/Documents/Dropbox/alberLocal/inpe/cqma/data/07"
-#' traj.intersections <- .intersectTraj(path.in = path.in, limit.in = samerica)}
 #' @export
 intersectTraj <- function(file.vec, limit.in, cnames, srs){
   #cnames <- HYSPLIT.COLNAMES                                                    # column names of the input file  
@@ -146,7 +141,7 @@ intersectTraj <- function(file.vec, limit.in, cnames, srs){
                                         function(x){
                                           if(is.null(x)){return(NULL)};
                                           return(as.numeric(
-                                            rownames(slot(x, "coords"))[1]))
+                                            rownames(methods::slot(x, "coords"))[1]))
                                         }) 
   # get the data from the intersection
   intersect.dat <- parallel::mclapply(1:length(traj.dat.list),
