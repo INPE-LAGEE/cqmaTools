@@ -227,14 +227,13 @@ for(i in 1:length(rawdatafile.vec)){
   # update
   hysplit.nohead.files["keep"] <- hysplit.nohead.files["keep"] & hysplit.nohead.files["above"]
   hysplit.nohead.files[is.na(hysplit.nohead.files["keep"]), "keep"] <- FALSE
-  
   #
   #---- Intersect trajectories with the limit ----
   log4r::debug(logger, "step 05 - Intersect trajectories with limit.shp")
   traj.intersections <- cqmaTools::intersectTraj(file.vec = as.vector(unlist(
     hysplit.nohead.files[hysplit.nohead.files$keep == TRUE, "file.vec"]
   )), 
-  limit.in = limit.sp, cnames = HYSPLIT.COLNAMES)
+  limit.in = limit.sp, cnames = HYSPLIT.COLNAMES, srs = SPATIAL.REFERENCE.SYSTEM)
   #
   #---- Filter trajectories which do not reach the sea -----
   log4r::debug(logger, "step 06 - Filter trajectories which do not reach the sea")
@@ -333,13 +332,20 @@ for(i in 1:length(rawdatafile.vec)){
   if(plotAllTrajectories){
     traj.plot <- hysplit.nohead.files[hysplit.nohead.files$keep == FALSE, "file.vec"]
   }
+  
+  
+  
+  
+  
+  
+  
+  
   plot.result <- cqmaTools::plotTrajbackground(
     file.in = filterRawfile, 
     path.out = plot.path, 
     traj.plot = traj.plot, 
     traj.interpol = traj.interpolations, 
     traj.intersections = traj.intersections, 
-    use.backgorund = use.backgorund, 
     device = device, 
     map.xlim = map.xlim, 
     map.ylim = map.ylim, 
@@ -356,8 +362,16 @@ for(i in 1:length(rawdatafile.vec)){
     logger = logger, 
     trajCnames = HYSPLIT.COLNAMES, 
     obsCnames = RAW.DATA.COLNAMES.KEEP, 
-    profileCnames = PROFILE.COLNAMES
+    profileCnames = PROFILE.COLNAMES, 
+    trajFileMet = TRAJ.FILENAMES.METADATA
   )
+  
+  
+  
+  
+  
+  
+  
   plot.files <- plot.result[[1]]
   profile.df <- plot.result[[2]]
   #

@@ -132,7 +132,7 @@ intersectTraj <- function(file.vec, limit.in, cnames, srs){
   }
   traj.dat.list <- .files2df(file.vec = file.vec, header = FALSE, 
                              skip = 0, cnames = cnames)
-  traj.spl.list <- parallel::mclapply(traj.dat.list, .traj2spLines, crs = srs)  # get SpatialLines from trajectories
+  traj.spl.list <- parallel::mclapply(traj.dat.list, .traj2spLines, crs = sp::CRS(srs))  # get SpatialLines from trajectories
   traj.intersect.list <- parallel::mclapply(traj.spl.list, 
                                             cqmaTools::intersectTraj.intersect, 
                                             g1 = limit.in, 
@@ -326,7 +326,6 @@ crossdata <- function(traj.intersections, stations.df, tolerance.sec, timezone, 
 #' @param traj.plot          A vector of character. The file path to trajectories to plot additional to those in traj.intersections[[1]]
 #' @param traj.interpol      A list of numeric. The interpolated values of teh trajectories over the sea
 #' @param traj.intersections A list made of a character vector and a list. The character vector is the path to each trajectory file while the list contains the first row in the trajectory file which lies over the sea
-#' @param use.backgorund     A character. The type of filter used when calculating the background concentration. The options are c("median", "hard"). Median is the default
 #' @param device             A character. Image format, i.e. PNG
 #' @param map.xlim           A numeric vector. Map's min & max longitude
 #' @param map.ylim           A numeric vector. Map's min & max latitude
@@ -344,15 +343,18 @@ crossdata <- function(traj.intersections, stations.df, tolerance.sec, timezone, 
 #' @param trajCnames         A character. Column names of hysplit files
 #' @param obsCnames          A character. Filtered observation column names
 #' @param profileCnames      A character. Column names of the pofiles
+#' @param trajFileMet        A character. Metadata included in the trajectory's file names
 #' @return                   A list of objects. A character vector with the paths to the plot files, and a data.frame with merged data
 #' @export
 plotTrajbackground <- function(file.in, path.out, traj.interpol, 
-                                traj.intersections, use.backgorund, traj.plot, 
+                                traj.intersections, traj.plot, 
                                 device, map.xlim, 
                                 map.ylim, map.height, map.width, sec.width, 
                                 sec.height, prof.height, prof.width, nsd, 
                                 maxfm.ppm, stations.df, plot2file, logger, 
-                               trajCnames, obsCnames, profileCnames){
+                               trajCnames, obsCnames, profileCnames, trajFileMet){
+  ## @param use.backgorund     A character. The type of filter used when calculating the background concentration. The options are c("median", "hard")
+  
   if(length(traj.interpol) == 0){warning("No interpolations!"); return()}
   #trajCnames <- HYSPLIT.COLNAMES                                                # column names of the trajectory files
   #obsCnames <- RAW.DATA.COLNAMES.KEEP                                           # filtered observation column names
@@ -391,7 +393,10 @@ plotTrajbackground <- function(file.in, path.out, traj.interpol,
   names(interpol.df) <- c("file.vec", "interpolated")
   interpol.df["file.vec"] <- basename(as.vector(unlist(interpol.df["file.vec"])))
   interpol.df["profile"] <- .filename2profile(unlist(interpol.df["file.vec"]))  # add profile column
-  interpol.df <- cbind(interpol.df, .trajFilenames2metadata(unlist(interpol.df["file.vec"])))
+  interpol.df <- cbind(interpol.df, 
+                       .trajFilenames2metadata(
+                         file.vec = unlist(interpol.df["file.vec"]), 
+                         cnames = trajFileMet))
   interpol.df["height"] <- .as.numeric.factor(interpol.df$height)
   #
   # process intersections
@@ -417,11 +422,26 @@ plotTrajbackground <- function(file.in, path.out, traj.interpol,
   filenames <- vector(mode = "character", length = 0)                           # files created on this function
   profile.all <- data.frame()                                                   # keep the profile data  
   for(prof in profile.vec){
-    debug(logger, paste(" - - processing profile ", prof, sep = ""))
+    log4r::debug(logger, paste(" - - processing profile ", prof, sep = ""))
     #
     # merge data
     #
+    
+    
+    
+    
+    
+    
+    #---- TODO: error ----
+    # nrow(prof.obs) == 0 because the naming convention of profile changed????
     prof.obs <- raw.df[raw.df$profile == prof, ]                                # observed data
+    
+    
+    
+    
+    
+    
+    
     prof.int <- interpol.df[interpol.df$profile == prof, ]                      # interpolated data
     prof.isec <- intersec.df[intersec.df$profile == prof, ]                     # trajectory data of the intersections
     prof.traj <- traj.dat.df[traj.dat.df$profile == prof, ]                     # all the trajectories of this profile

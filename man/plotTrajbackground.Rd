@@ -5,9 +5,9 @@
 \title{Plot profiles and trajectories}
 \usage{
 plotTrajbackground(file.in, path.out, traj.interpol, traj.intersections,
-  use.backgorund, traj.plot, device, map.xlim, map.ylim, map.height, map.width,
-  sec.width, sec.height, prof.height, prof.width, nsd, maxfm.ppm, stations.df,
-  plot2file, logger, trajCnames, obsCnames, profileCnames)
+  traj.plot, device, map.xlim, map.ylim, map.height, map.width, sec.width,
+  sec.height, prof.height, prof.width, nsd, maxfm.ppm, stations.df, plot2file,
+  logger, trajCnames, obsCnames, profileCnames, trajFileMet)
 }
 \arguments{
 \item{file.in}{A character. The path to a filtered observations file or flag filtered raw data}
@@ -17,8 +17,6 @@ plotTrajbackground(file.in, path.out, traj.interpol, traj.intersections,
 \item{traj.interpol}{A list of numeric. The interpolated values of teh trajectories over the sea}
 
 \item{traj.intersections}{A list made of a character vector and a list. The character vector is the path to each trajectory file while the list contains the first row in the trajectory file which lies over the sea}
-
-\item{use.backgorund}{A character. The type of filter used when calculating the background concentration. The options are c("median", "hard"). Median is the default}
 
 \item{traj.plot}{A vector of character. The file path to trajectories to plot additional to those in traj.intersections[[1]]}
 
@@ -55,6 +53,8 @@ plotTrajbackground(file.in, path.out, traj.interpol, traj.intersections,
 \item{obsCnames}{A character. Filtered observation column names}
 
 \item{profileCnames}{A character. Column names of the pofiles}
+
+\item{trajFileMet}{A character. Metadata included in the trajectory's file names}
 }
 \value{
 A list of objects. A character vector with the paths to the plot files, and a data.frame with merged data

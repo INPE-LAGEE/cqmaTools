@@ -21,6 +21,7 @@ Imports:
     utils,
     sp,
     stats, 
-    fpc
+    fpc,
+    log4r
 License: MIT + file LICENSE
 RoxygenNote: 6.0.1
