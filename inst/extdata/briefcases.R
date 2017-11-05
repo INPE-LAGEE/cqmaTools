@@ -1,18 +1,24 @@
-################################################################################
-# TODO: script description
-################################################################################
-source("/home/lagee/Documents/ghProjects/cqmaTools/R/util.R")
-magicc.path <- "/home/lagee/home 2/magicc/"                                     # Path to flight logs
+# briefcases.R - Extract data from gas-analysis briefcases
 
+#---- TODO ----
+# - script description
+
+#---- Script setup ----
+test.path <- "/home/alber/Documents/tmp/cqmaTools/test"                         # base path
+magicc.path <- "/home/alber/Documents/tmp/cqmaTools/test/briefcase"             # Path to flight logs
+
+#---- Script parameters ----
+site <- toupper("RBA")                                                          # site's name
+data.out.path <- file.path(test.path, "BCS_results", fsep = .Platform$file.sep) # path to the resulting files
+
+#---- Log setup ----
 require(log4r)
 logger <- create.logger()
-logfile(logger) <- file.path("~/", "briefcases.log")
+logfile(logger) <- file.path(data.out.path, "briefcases.log")
 level(logger) <- "DEBUG"
 info(logger, "Start! ###############################################")
 
-
-# TODO: expose site & data.out.path as script parameters
-site <- toupper("RBA")                                                          # site's name
+#---- SCRIPT ----
 debug(logger, paste0("site: ", site))
 data.out.path <- "/home/lagee/Documents/alber/test/briefcase"                   # Path to output directory
 pat <- paste("^PFP_[0-9]{3,4}_", site, "_[0-9]{4}_[0-9]{2}_[0-9]{2}\\.(TXT|txt)", sep = "") # filter files by name
@@ -20,7 +26,7 @@ file.vec <- list.files(magicc.path, recursive = TRUE,                           
                        pattern = pat, 
                        full.names = TRUE)
 # call the script
-bc.list <- lapply(file.vec, .getHistoryAC)
+bc.list <- lapply(file.vec, cqmaTools::getHistoryAC)
 
 
 

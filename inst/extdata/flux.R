@@ -1,25 +1,26 @@
-source("/home/lagee/Documents/ghProjects/cqmaTools/R/util.R")
-#-------------------------------------
-# set up
-#-------------------------------------
+# flux.R - compute the flux
+
+#---- TODO ----
+# - make sure path exists    data.out.path/gas
+
+#---- Script setup ----
 site <- "alf"
 gas <- "co2"
-data.in.path <- "/home/lagee/Documents/alber/test/briefcase"
-file.path(data.in.path, "rba.co2_bkgTable.txt")
-file.path(data.in.path, "RBA_briefdata.txt")
-#-------------------------------------
+test.path <- "/home/alber/Documents/tmp/cqmaTools/test"                         # base path
+
+#---- SCRIPT ----
+data.in.path <- file.path(test.path, "briefcase") # "/home/lagee/Documents/alber/test/briefcase"
+data.out.path <- file.path(test.path, "flux_results", fsep = .Platform$file.sep) # path to the resulting files
+
 # get data resulting from scripts background.R & briefcases.R
-#-------------------------------------
 briefcase.df <- read.table(file.path(paste(data.in.path,'/',toupper(site),"_briefdata.txt", sep ='')))
 profile.df <- read.table(file.path(paste(data.in.path,'/' ,site, ".", gas,"_bkgTable.txt", sep='')))
 profbud.df <- merge(x = profile.df, y = briefcase.df, 
                     by.x = c("profile", "height"), 
                     by.y = c("profile", "planmts"), 
                     all.x = TRUE)
-#-------------------------------------
-# MODELS OF TEMPERATURE AND PRESSURE
+#---- MODELS OF TEMPERATURE AND PRESSURE ----
 # h is height
-#-------------------------------------
 ALFpres <- function(h){return(4E-6 *  h^2 - 0.1106 * h + 1004.5)}
 ALFtemp <- function(h){return(4E-7 *  h^2 - 0.0074 * h + 32.639)}
 RBApres <- function(h){return(4E-6 *  h^2 - 0.1209 * h + 1041.5)}
@@ -44,20 +45,20 @@ if(toupper(site) == "ALF"){
   tempfunc <- TABtemp
   presfunc <- TABpres
 }else{
-  error(logger, paste("There is no interpolation function for the given sample site: "), site, sep = "")
+  # error(logger, paste("There is no interpolation function for the given sample site: ", site, sep = ""))
+  stop(paste("There is no interpolation function for the given sample site: ", site, sep = ""))
 }
-#-------------------------------------
-# SITE HEIGHTS (mts)
-#-------------------------------------
+
+#---- SITE HEIGHTS (mts) ----
 siteheights <- list()
 siteheights["ALF"] <- 250
 siteheights["RBA"] <- 153
 siteheights["SAN"] <- 152
 siteheights["TAB"] <- 188
 siteheights["TEF"] <- 188
-#-----------------------------------------------------------------------------
-# flux computations
-#-----------------------------------------------------------------------------
+
+#---- flux computations ----
+
 # select the height
 profbud.df["heightcalc"] <- profbud.df$height
 sel <- profbud.df$maxmts != profbud.df$minmts
@@ -77,17 +78,29 @@ sel <- (profbud.df$pressureBrief > 300) & (profbud.df$pressureBrief < 1050)     
 sel[is.na(sel)] <- FALSE
 profbud.df$prescalc[sel] <- profbud.df$pressureBrief[sel]                       # keep the field observations that make sense
 
+#---- utilitary functions ----
+
+# compute the concentration on the ground
+#
+# 
+# @param dif_obs_bkg  A numeric. The difference between the observed conetration and the background concentration
+# @param hfloor       A numeric. The hieght of the floor
+# @param temp         A numeric. The tempearture of the first observation above the floor
+# @param height       A numeric. The height of the first observaton above the floor
+# @param molair       A numeric. The molarity of the air
+# @return             A numeric. The concentration on the ground
+.floorconcentration <- function(dif_obs_bkg, hfloor, temp, height, molair){
+  ((dif_obs_bkg * exp(-hfloor / 1013.25 / 7) / 0.0000820574587 / (temp + 273 + ((height - hfloor) * 0.0059))) + (molair * dif_obs_bkg))/2
+  # ((S16         * EXP(-P$1    / 1013.25 / 7)/  F$2             / (U16  + 273 + ((P16 -    P$1   ) * 0.0059))) + (Y16 *    S16        ))/2
+}
 
 
+#---- chemistry ----
 
-
-
-#-----------------------------------------------------------------------------
-# chemistry
-#-----------------------------------------------------------------------------
 profbud.df["obs_bkg"] <- profbud.df$observed - profbud.df$background            # observed concetration minus backgroud
 profbud.df["airmol"]  <- (profbud.df$prescalc / 1013.25)/(0.0000820574587 * (profbud.df$tempcalc + 273))   # air molarity
 profbud.df["mmolgasmt3"]  <- profbud.df$obs_bkg * profbud.df$airmol
+
 # compute flux
 uprof <- as.character(unique(profbud.df$profile))                               # unique profiles
 flux.list <- lapply(uprof, 
@@ -150,9 +163,7 @@ names(budget) <- c("profile", "flux.mmolmt2day")
 budget["gas"] <- gas
 budget["mgCmt2day"] <- budget$flux.mmolmt2day * 28
 budget["gCmt2day"] <- budget$mgCmt2day / 1000000
-budget <- cbind(budget, .getDataFromProfile(prof.name = as.character(budget$profile)))
-write.table(budget, paste("/home/lagee/Dropbox/DADOS LaGEE/ScriptsR/Fluxo/", toupper(gas), '/','fluxo_',site,'_',gas,'.txt', sep=''), col.names = TRUE, row.names = FALSE)
-write.table(budget, paste("/home/lagee/Documents/alber/test/Flux_results/", toupper(gas), '/','fluxo_',site,'_',gas,'.txt', sep=''), col.names = TRUE, row.names = FALSE)
+budget <- cbind(budget, cqmaTools::getDataFromProfile(prof.name = as.character(budget$profile)))
+write.table(budget, paste(data.out.path, '/', toupper(gas), '/','fluxo_',site,'_',gas,'.txt', sep=''), col.names = TRUE, row.names = FALSE)
+write.table(budget, paste(data.out.path, '/', toupper(gas), '/','fluxo_',site,'_',gas,'.txt', sep=''), col.names = TRUE, row.names = FALSE)
 #
-
-

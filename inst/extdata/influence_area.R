@@ -106,6 +106,3 @@ compInfArea <- function(siteyear, filepath){
 # minimim value of a cell 0
 # maximum value of a cell 12 flask * 14 days * 24 hours * 4 sample per hour = 16128
 
-
-
-
