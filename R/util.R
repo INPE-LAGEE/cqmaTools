@@ -6,6 +6,37 @@
 
 #---- Checked ----
 
+#' @title Read text files into data.frames
+#' @name files2df
+#' @author Alber Sanchez, \email{alber.ipia@@inpe.br}
+#'
+#' @description Read text files into data.frames (one per file)
+#'
+#' @param file.vec A vector of character. The paths to the input files
+#' @param header   A logical. Do the files have a header row?
+#' @param skip     A numeric. Lines to skip from the top of the file
+#' @param cnames   A vector of character. The column names of the data in the files
+#' @return         A list of data.frames. The list names matches the file names
+#' @export
+files2df <- function(file.vec, header, skip, cnames){
+  res <- list()
+  if(length(file.vec) == 0){
+    warning("Empty list")
+    return(res)
+  }
+  for(i in 1:length(file.vec)){
+    res[[i]] <- .file2df(
+      file.in = file.vec[i],
+      cnames = cnames, 
+      header = header, 
+      skip = skip)
+  }
+  names(res) <- basename(file.vec)
+  return(res)
+}
+
+
+
 #' @title Get the data from profile name
 #' @name getDataFromProfile
 #' @author Alber Sanchez, \email{alber.ipia@@inpe.br}
@@ -13,7 +44,7 @@
 #' @description Get the data from profile name
 #'
 #' @param prof.name A character. The name of the profile. i.e. RBA_2016_05_16
-#' @#return         A data.frame with columns c("site", "year", "month", "day")
+#' @return         A data.frame with columns c("site", "year", "month", "day")
 #' @export
 getDataFromProfile <- function(prof.name){
   nameelements <- lapply(prof.name, function(x){
@@ -294,29 +325,6 @@ removeHeaders <- function(file.vec, path.out, skip, cnames){
 
 
 
-# Read text files into data.frames (one per file)
-#
-# @param file.vec A vector of character. The paths to the input files
-# @param header   A logical. Do the files have a header row?
-# @param skip     A numeric. Lines to skip from the top of the file
-# @param cnames   A vector of character. The column names of the data in the files
-# @return         A list of data.frames. The list names matches the file names
-.files2df <- function(file.vec, header, skip, cnames){
-  res <- list()
-  if(length(file.vec) == 0){
-    warning("Empty list")
-    return(res)
-  }
-  for(i in 1:length(file.vec)){
-    res[[i]] <- .file2df(
-      file.in = file.vec[i],
-      cnames = cnames, 
-      header = header, 
-      skip = skip)
-  }
-  names(res) <- basename(file.vec)
-  return(res)
-}
 
 
 
