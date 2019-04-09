@@ -1,11 +1,18 @@
 # compute the influence area
 library(raster)
 
-s = c('rba','alf','san','tab','tef')
+# s = c('rba','alf','san','tab','tef')
+s = c('rba','alf','san','tab','tef')[5]
 tt = c('real','fake')
 
-site = 'tef'                                                                    # modifica o site
+#site = 'tef'                                                                    # modifica o site
 t = 'fake'
+# t = "real"
+
+lon.range <- c(-80, -20) # range(hs.df[, "lon"])
+lat.range <- c(-60, 20) # range(hs.df[, "lat"])
+
+
 
 Plot_stations = 'nao'
 
@@ -17,8 +24,6 @@ for(t in tt) {
     HYSPLIT.COLNAMES <- c("V1", "V2", "year", "month", "day", "hour", "min", 
                           "V8", "V9", "lat", "lon", "height", "pressure") 
     
-    lon.range <- c(-80, -30) # range(hs.df[, "lon"])
-    lat.range <- c(-60, 20) # range(hs.df[, "lat"])
     
     # build a list of sites and years
     hsfiles <- list.files(filepath)
@@ -42,7 +47,7 @@ for(t in tt) {
     }
     
     
-    # TODO: Document!!!
+    # TODO: Documemnt!!!
     #' Cast a data.frame to raster
     #' @param xyv.df
     #' @param invertY
@@ -128,11 +133,7 @@ for(t in tt) {
       #  files <- list.files(filepath, pattern = paste0(siteyear[1], "_", siteyear[2]), full.names = TRUE)
       
       if (t == 'fake') {
-        filepath = paste0(
-          '/home/lagee/Dropbox/DADOS LaGEE/ScriptsR/trajetorias simuladas/',
-          toupper(site),
-          '/'
-        )
+        filepath = paste0('/home/lagee/Dropbox/DADOS LaGEE/ScriptsR/trajetorias simuladas/',toupper(site), '/')
       } else{
         files = list.files(filepath, pattern = siteyear, full.names = TRUE)
       }
@@ -358,7 +359,7 @@ for(t in tt) {
           xmn = min(lon.grid),
           xmx = max(lon.grid),
           ymn = min(lat.grid),
-          ymx = min(lat.grid) + (ll.res * length(1:(max(trajden$ycol) - 1)))
+          ymx = min(lat.grid) + (2 * length(1:(max(trajden$ycol) - 1)))
         )
         if (all(dim(r1) == dim(r_logfreq)) == FALSE) {
           warning("Raster dimensions do not match!")
@@ -429,15 +430,19 @@ for(t in tt) {
         #      ylab =expression(paste("Latitude ","(",degree,")")),
         #      col = rev(heat.colors(nbreaks)),
         #      breaks = intBreaks, main = paste(toupper(siteyear), collapse = " "))
-        
         plot(
           d,
           xlab = expression(paste("Longitude ", "(", degree, ")")),
           ylab = expression(paste("Latitude ", "(", degree, ")")),
+          xlim = lon.range,
+          ylim = lat.range,
           col = rev(heat.colors(nbreaks)),
           # breaks = intBreaks,
-          axes = FALSE
+          #axes = FALSE
+          xaxs="i", yaxs="i",
+          asp = 1
         )
+        
         
         if (Plot_stations == 'sim') {
           points(www$V3,
@@ -449,21 +454,21 @@ for(t in tt) {
         
         # abline(v=(seq(-80,-30,1)), col="black", lty="dotted")
         # abline(h=(seq(-40,10,1)), col="black", lty="dotted")
-        axis(side = 1,
-             at = seq(-80, -30, by = 5),
-             las = 1)
+axis(side = 1, at = seq(-80, -30, by = 5), las = 1)
         # axis(side = 3, at = seq(-80,-30, by = 5), las = 1)
-        axis(side = 2,
-             at = seq(-40, 10, by = 5),
-             las = 2)
+axis(side = 2, at = seq(-40, 10, by = 5), las = 2)
         #axis(side = 4, at = seq(-40,10, by = 5), las = 2)
         
-        text(
-          x = -40,
-          y = -35,
-          labels = paste(toupper(site), year, sep = " "),
-          cex = 1.5
-        )
+        
+        
+        tri.shr <- c("1st", "2nd", "3rd", "4th")
+        
+        # text(
+        #   x = -40,
+        #   y = -35,
+        #   labels = paste(toupper(site), year, tri.shr[match(hh,seq)], sep = " "),
+        #   cex = 1.5
+        # )
         
         if (site == 'rba') {
           points(-64.74, -9.02, pch = 13, cex = 2)
