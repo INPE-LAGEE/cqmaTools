@@ -1,10 +1,8 @@
 # compute the yearly influence area
 
 #---- TODO ----
-# - yearly mean of each cell. Sum the value of each year and divide by the number of years
-# - save the grid
-# - Change the origin
-# - Chage the spatial resolution to one degee
+
+
 # remove
 library(devtools)
 devtools::load_all()
