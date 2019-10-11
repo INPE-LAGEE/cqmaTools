@@ -111,13 +111,15 @@ grid_table <- expand.grid(seq(min(grid_lon_range), by = grid_resolution, length.
 
 #---- link the data to the raster ----
 
-my_site <- "san"
+my_site <- "tef"
 
 data_vector <- traj_stats %>% 
-  dplyr::filter(site == my_site,
-                traj_year == dplyr::pull(dplyr::slice(., 1), traj_year)) %>% 
+  dplyr::filter(site == my_site) %>% 
+  dplyr::filter(traj_year == dplyr::first(dplyr::pull(., traj_year))) %>% 
+  ensurer::ensure_that(nrow(.) > 0, err_desc = "No data found!") %>% 
   ensurer::ensure_that(length(unique(.$site)) == 1, 
-                       length(unique(.$traj_year)) == 1) %>% 
+                       length(unique(.$traj_year)) == 1, 
+                       err_desc = "Invalid trajectory site or year") %>% 
   right_join(grid_table, by = "sp_index") %>% 
   dplyr::pull(mean_trajectory)
 
@@ -131,6 +133,6 @@ maps::map("world",
           add = TRUE)
 
 traj_stats %>% 
-  write.table(file = "/home/lagee/Dropbox/DADOS LaGEE/ScriptsR_Figures/influence_area_3500/by_year/site_traj_mean.csv")
+  write.table(file = "/home/lagee/Dropbox/DADOS LaGEE/ScriptsR_Figures/influence_area_3500/by_year_mean/site_tef_traj_mean.csv")
 
   
