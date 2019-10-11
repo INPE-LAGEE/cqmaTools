@@ -15,13 +15,12 @@ library(raster)
 
 trajectory_dir <- "/home/lagee/Documents/alber/test/hysplitsimulations/all_co2"
 station_data_dir <- "/home/lagee/Dropbox/DADOS LaGEE/ScriptsR_Figures/influence_area_3500/by_year/stn_byia"
+out_dir <- "/home/lagee/Dropbox/DADOS LaGEE/ScriptsR_Figures/influence_area_3500/by_year_mean"
 HYSPLIT.COLNAMES <- c("V1", "V2", "year", "month", "day", "hour", "min", 
                       "V8", "V9", "lat", "lon", "height", "pressure") 
 grid_resolution <- 1 # DO NOT CHANGE!
 grid_lon_range <- c(-80, -30)
 grid_lat_range <- c(-40, 10) 
-
-Plot_stations <- FALSE 
 
 site_location_tb <- tribble( 
   ~site, ~longitude, ~latitude, 
@@ -63,22 +62,30 @@ trajectory_tb <- trajectory_dir %>%
   tidyr::unnest(cols = c(data)) %>% 
   dplyr::filter(lon >= grid_lon_range[1], lon <= grid_lon_range[2],
                 lat >= grid_lat_range[1], lat <= grid_lat_range[2]) %>% 
-  dplyr::mutate(sp_index = stringr::str_c(floor(lon), '_', floor(lat))) %>% 
-  dplyr::filter(height <= 3500)
-    
-traj_stats <- trajectory_tb %>% 
+  dplyr::mutate(sp_index = stringr::str_c(floor(lon), '_', floor(lat)), 
+                traj_trimester = paste(traj_year,findInterval(traj_month, seq(1, 12, by = 3)), sep = '_')) %>% 
+  dplyr::filter(height <= 3500) %>% 
+  ensurer::ensure_that(all(.$traj_trimester > 0 && .$traj_trimester < 5))
+
+traj_by_year <- trajectory_tb %>% 
   dplyr::group_by(site, traj_year, sp_index) %>% 
   dplyr::summarize(n()) %>% 
   dplyr::ungroup() %>% 
   dplyr::rename("total_year" = `n()`)
 
-traj_stat_total <- trajectory_tb %>% 
+traj_by_trimester <- trajectory_tb %>% 
+  dplyr::group_by(site, traj_trimester, sp_index) %>% 
+  dplyr::summarize(n()) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::rename("total_trimester" = `n()`)
+
+traj_total <- trajectory_tb %>% 
   dplyr::group_by(site, sp_index) %>% 
   dplyr::summarize(n()) %>% 
   dplyr::ungroup() %>% 
   dplyr::rename("total_site" = `n()`)
 
-site_years <- traj_stats %>% 
+site_years <- traj_by_year %>% 
   dplyr::select(site, traj_year) %>% 
   dplyr::distinct() %>% 
   dplyr::group_by(site) %>% 
@@ -86,21 +93,39 @@ site_years <- traj_stats %>%
   dplyr::ungroup() %>% 
   dplyr::rename("years_per_site" = `n()`) 
 
-traj_stats <- traj_stats %>% 
-  dplyr::left_join(traj_stat_total, by = c("site", "sp_index")) %>% 
-  dplyr::left_join(site_years, by = "site") %>% 
-  dplyr::mutate("mean_trajectory" = total_site / years_per_site)
+site_trimester <- traj_by_trimester %>% 
+  dplyr::select(site, traj_trimester) %>% 
+  dplyr::distinct() %>% 
+  dplyr::group_by(site) %>% 
+  dplyr::summarize(n()) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::rename("trimester_per_site" = `n()`) 
+
+traj_by_year <- traj_by_year %>% 
+  dplyr::left_join(traj_total, by = c("site", "sp_index")) %>% 
+  dplyr::left_join(site_years, by = "site")
+
+traj_by_trimester <- traj_by_trimester %>% 
+  dplyr::left_join(traj_total, by = c("site", "sp_index")) %>% 
+  dplyr::left_join(site_trimester, by = "site")
+
+my_sites <-  traj_by_trimester %>% 
+  dplyr::mutate(year = stringr::str_sub(traj_trimester, 1, 4)) %>% 
+  dplyr::select(site, year, trimester = traj_trimester) %>% 
+  dplyr::distinct() %>% 
+  dplyr::arrange(site, year, trimester)
 
 #---- build a raster grid ----
 
-ext <- raster::extent(min(grid_lon_range), max(grid_lon_range), 
-                      min(grid_lat_range), max(grid_lat_range))
-grid_raster <- raster(ext)
-res(grid_raster) <- c(grid_resolution, grid_resolution)
-projection(grid_raster) <- CRS("+init=epsg:4326")
-grid_raster[] <- 0
-#grid_raster[] <- 1:raster::ncell(grid_raster)
-#plot(grid_raster)
+new_raster <- function(grid_resolution, grid_lon_range, grid_lat_range) {
+  ext <- raster::extent(min(grid_lon_range), max(grid_lon_range), 
+                        min(grid_lat_range), max(grid_lat_range))
+  grid_raster <- raster(ext)
+  res(grid_raster) <- c(grid_resolution, grid_resolution)
+  projection(grid_raster) <- CRS("+init=epsg:4326")
+  grid_raster[] <- 0
+  return(grid_raster)
+}
 
 grid_table <- expand.grid(seq(min(grid_lon_range), by = grid_resolution, length.out = diff(grid_lon_range)), 
                           seq(min(grid_lat_range), by = grid_resolution, length.out = diff(grid_lat_range))) %>% 
@@ -111,28 +136,121 @@ grid_table <- expand.grid(seq(min(grid_lon_range), by = grid_resolution, length.
 
 #---- link the data to the raster ----
 
-my_site <- "tef"
+my_treshold <- 0.025
 
-data_vector <- traj_stats %>% 
-  dplyr::filter(site == my_site) %>% 
-  dplyr::filter(traj_year == dplyr::first(dplyr::pull(., traj_year))) %>% 
-  ensurer::ensure_that(nrow(.) > 0, err_desc = "No data found!") %>% 
-  ensurer::ensure_that(length(unique(.$site)) == 1, 
-                       length(unique(.$traj_year)) == 1, 
-                       err_desc = "Invalid trajectory site or year") %>% 
-  right_join(grid_table, by = "sp_index") %>% 
-  dplyr::pull(mean_trajectory)
+#----- Plot total ----
+for (my_site in unique(dplyr::pull(my_sites, site))) {
+    print(sprintf("Site: %s Treshold: %s", my_site, my_treshold)) 
+    data_vector <- traj_by_year %>% 
+      dplyr::filter(site == my_site) %>% 
+      dplyr::filter(traj_year == dplyr::first(dplyr::pull(., traj_year))) %>% 
+      dplyr::mutate("mean_trajectory" = total_site / years_per_site, 
+                    "treshold" = max(mean_trajectory) * my_treshold) %>% 
+      dplyr::filter(mean_trajectory >= treshold) %>% 
+      ensurer::ensure_that(nrow(.) > 0, err_desc = "No data found!") %>% 
+      ensurer::ensure_that(length(unique(.$site)) == 1, 
+                           length(unique(.$traj_year)) == 1, 
+                           err_desc = "Invalid trajectory site or year") %>% 
+      right_join(grid_table, by = "sp_index")
+    
+    grid_raster <- new_raster(grid_resolution, grid_lon_range, grid_lat_range)
+    grid_raster[] <- data_vector %>%
+      dplyr::pull(mean_trajectory)
 
-grid_raster[] <- data_vector
+    out_file <- paste0(my_site, '_total')
+    png(filename = file.path(out_dir, paste0(out_file, ".png")))
+    plot(grid_raster, main =  sprintf("Site: %s Treshold: %s", 
+                                      my_site, my_treshold)) 
+    points(dplyr::select(site_location_tb, longitude, latitude))
+    maps::map("world",
+              xlim = grid_lon_range,
+              ylim = grid_lat_range,
+              add = TRUE)
+    dev.off()
+    
+    data_vector %>% 
+      write.table(file = file.path(out_dir, paste0(out_file, ".csv")))
+    rm(data_vector)
+}
 
-plot(grid_raster)
-points(dplyr::select(site_location_tb, longitude, latitude))
-maps::map("world",
-          xlim = grid_lon_range,
-          ylim = grid_lat_range,
-          add = TRUE)
 
-traj_stats %>% 
-  write.table(file = "/home/lagee/Dropbox/DADOS LaGEE/ScriptsR_Figures/influence_area_3500/by_year_mean/site_tef_traj_mean.csv")
+#----- Plot by year ----
 
   
+for (my_site in unique(dplyr::pull(my_sites, site))) {
+  for (my_year in unique(dplyr::pull(dplyr::filter(my_sites, site == my_site), 
+                                     year))) {
+    print(sprintf("Site: %s Year: %s Treshold: %s", my_site, my_year, my_treshold)) 
+    data_vector <- traj_by_year %>% 
+      dplyr::filter(site == my_site, traj_year == my_year) %>% 
+      dplyr::mutate("mean_trajectory" = total_site / 1, 
+                    "treshold" = max(mean_trajectory) * my_treshold) %>% 
+      dplyr::filter(mean_trajectory >= treshold) %>% 
+      ensurer::ensure_that(nrow(.) > 0, err_desc = "No data found!") %>% 
+      ensurer::ensure_that(length(unique(.$site)) == 1, 
+                           length(unique(.$traj_year)) == 1, 
+                           err_desc = "Invalid trajectory site or year") %>% 
+      right_join(grid_table, by = "sp_index")
+    
+    grid_raster <- new_raster(grid_resolution, grid_lon_range, grid_lat_range)
+    grid_raster[] <- data_vector %>%
+      dplyr::pull(mean_trajectory)
+    
+    out_file <- paste0(my_site, '_', my_year)
+    png(filename = file.path(out_dir, paste0(out_file, ".png")))
+    plot(grid_raster, main =  sprintf("Site: %s Year: %s Treshold: %s", 
+                                      my_site, my_year, my_treshold)) 
+    points(dplyr::select(site_location_tb, longitude, latitude))
+    maps::map("world",
+              xlim = grid_lon_range,
+              ylim = grid_lat_range,
+              add = TRUE)
+    dev.off()
+    
+    data_vector %>% 
+      write.table(file = file.path(out_dir, paste0(out_file, ".csv")))
+    rm(data_vector)
+  }
+}
+
+
+#----- Plot by trimester ----
+
+  
+for (my_site in unique(dplyr::pull(my_sites, site))) {
+  for (my_trimester in unique(dplyr::pull(dplyr::filter(my_sites, 
+                                                        site == my_site), 
+                                     trimester))) {
+    print(sprintf("Site: %s Trimester: %s Treshold: %s", my_site, my_trimester, 
+                  my_treshold)) 
+    data_vector <- traj_by_trimester %>% 
+      dplyr::filter(site == my_site, traj_trimester == my_trimester) %>% 
+      dplyr::mutate("mean_trajectory" = total_trimester / 1, 
+                    "treshold" = max(mean_trajectory) * my_treshold) %>% 
+      dplyr::filter(mean_trajectory >= treshold) %>% 
+      ensurer::ensure_that(nrow(.) > 0, err_desc = "No data found!") %>% 
+      ensurer::ensure_that(length(unique(.$site)) == 1, 
+                           length(unique(.$traj_trimester)) == 1, 
+                           err_desc = "Invalid trajectory site or trimester") %>% 
+      right_join(grid_table, by = "sp_index")
+    
+    grid_raster <- new_raster(grid_resolution, grid_lon_range, grid_lat_range)
+    grid_raster[] <- data_vector %>%
+      dplyr::pull(mean_trajectory)
+    
+    out_file <- paste0(my_site, '_', my_trimester)
+    png(filename = file.path(out_dir, paste0(out_file, ".png")))
+    plot(grid_raster, main =  sprintf("Site: %s Trimester: %s Treshold: %s", 
+                                      my_site, my_trimester, my_treshold)) 
+    points(dplyr::select(site_location_tb, longitude, latitude))
+    maps::map("world",
+              xlim = grid_lon_range,
+              ylim = grid_lat_range,
+              add = TRUE)
+    dev.off()
+    
+    data_vector %>% 
+      write.table(file = file.path(out_dir, paste0(out_file, ".csv")))
+    rm(data_vector)
+  }
+}
