@@ -1,7 +1,6 @@
-# compute the yearly influence area
+rly influence area
 
 #---- TODO ----
-
 
 # remove
 library(devtools)
@@ -31,7 +30,13 @@ site_location_tb <- tribble(
   "tef", -66.5, -3.68
 ) 
 
+# Number of neighbor cells to take into account express as a "radius". It's a 
+# "radius" where i.e. 1 means a 3x3, 2 means 5x5, etc
+neighbor_radius <- 1
 
+# Maximum number of missing neighbors (NAs) of each cell.
+max_missing_neighbors <- 4
+    
 #---- compute the statistics ----
 
 # Create a table of files.
@@ -157,6 +162,22 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
     grid_raster[] <- data_vector %>%
       dplyr::pull(mean_trajectory)
 
+    #---- Count neighbors ----
+    
+    na_neighbors <- raster::focal(grid_raster, 
+                                  w = matrix(rep(1, (neighbor_radius * 2 + 1)^2), 
+                                             ncol = (neighbor_radius * 2 + 1)), 
+                                  fun = function(x){sum(is.na(x))})
+    data_vector <- data_vector %>% 
+      dplyr::mutate(missing_neigbors = na_neighbors[],
+                    mean_trajectory = ifelse(missing_neigbors <= max_missing_neighbors,
+                                             mean_trajectory, NA))
+    
+    grid_raster <- new_raster(grid_resolution, grid_lon_range, grid_lat_range)
+    grid_raster[] <- data_vector %>%
+      dplyr::pull(mean_trajectory)
+    
+    #---- Save the plot ----
     out_file <- paste0(my_site, '_total')
     png(filename = file.path(out_dir, paste0(out_file, ".png")))
     plot(grid_raster, main =  sprintf("Site: %s Treshold: %s", 
@@ -167,10 +188,14 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
               ylim = grid_lat_range,
               add = TRUE)
     dev.off()
+    raster::writeRaster(grid_raster, 
+                        filename = file.path(out_dir,  paste0(out_file, ".tif")), 
+                        options = c('TFW=YES'))
     
     data_vector %>% 
       write.table(file = file.path(out_dir, paste0(out_file, ".csv")))
     rm(data_vector)
+    
 }
 
 
@@ -196,6 +221,21 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
     grid_raster[] <- data_vector %>%
       dplyr::pull(mean_trajectory)
     
+    #---- Count neighbors ----
+    na_neighbors <- raster::focal(grid_raster, 
+                                  w = matrix(rep(1, (neighbor_radius * 2 + 1)^2), 
+                                             ncol = (neighbor_radius * 2 + 1)), 
+                                  fun = function(x){sum(is.na(x))})
+    data_vector <- data_vector %>% 
+      dplyr::mutate(missing_neigbors = na_neighbors[],
+                    mean_trajectory = ifelse(missing_neigbors <= max_missing_neighbors,
+                                             mean_trajectory, NA))
+    
+    grid_raster <- new_raster(grid_resolution, grid_lon_range, grid_lat_range)
+    grid_raster[] <- data_vector %>%
+      dplyr::pull(mean_trajectory)
+     
+    #---- Save the plot ----
     out_file <- paste0(my_site, '_', my_year)
     png(filename = file.path(out_dir, paste0(out_file, ".png")))
     plot(grid_raster, main =  sprintf("Site: %s Year: %s Treshold: %s", 
@@ -206,6 +246,9 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
               ylim = grid_lat_range,
               add = TRUE)
     dev.off()
+    raster::writeRaster(grid_raster, 
+                        filename = file.path(out_dir,  paste0(out_file, ".tif")), 
+                        options = c('TFW=YES'))
     
     data_vector %>% 
       write.table(file = file.path(out_dir, paste0(out_file, ".csv")))
@@ -238,6 +281,21 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
     grid_raster[] <- data_vector %>%
       dplyr::pull(mean_trajectory)
     
+    #---- Count neighbors ----
+    na_neighbors <- raster::focal(grid_raster, 
+                                  w = matrix(rep(1, (neighbor_radius * 2 + 1)^2), 
+                                             ncol = (neighbor_radius * 2 + 1)), 
+                                  fun = function(x){sum(is.na(x))})
+    data_vector <- data_vector %>% 
+      dplyr::mutate(missing_neigbors = na_neighbors[],
+                    mean_trajectory = ifelse(missing_neigbors <= max_missing_neighbors,
+                                             mean_trajectory, NA))
+    
+    grid_raster <- new_raster(grid_resolution, grid_lon_range, grid_lat_range)
+    grid_raster[] <- data_vector %>%
+      dplyr::pull(mean_trajectory)
+    
+    #---- Save the plot ----
     out_file <- paste0(my_site, '_', my_trimester)
     png(filename = file.path(out_dir, paste0(out_file, ".png")))
     plot(grid_raster, main =  sprintf("Site: %s Trimester: %s Treshold: %s", 
@@ -248,9 +306,13 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
               ylim = grid_lat_range,
               add = TRUE)
     dev.off()
+    raster::writeRaster(grid_raster, 
+                        filename = file.path(out_dir,  paste0(out_file, ".tif")), 
+                        options = c('TFW=YES'))
     
     data_vector %>% 
       write.table(file = file.path(out_dir, paste0(out_file, ".csv")))
     rm(data_vector)
   }
 }
+
