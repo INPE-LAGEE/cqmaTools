@@ -1,4 +1,4 @@
-# compute the yearly influence area
+rly influence area
 
 #---- TODO ----
 
@@ -315,3 +315,4 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
     rm(data_vector)
   }
 }
+
