@@ -3,6 +3,8 @@
 export(computeTrajTime)
 export(crossdata)
 export(df2text)
+export(file2df)
+export(files2df)
 export(filterTrajHeight)
 export(getDataFromProfile)
 export(getHistoryAC)

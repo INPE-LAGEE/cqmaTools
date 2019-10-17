@@ -3,7 +3,6 @@
 \name{get_os}
 \alias{get_os}
 \alias{getHistoryAC}
-\alias{get_os}
 \title{Get data from briefcases}
 \usage{
 getHistoryAC(file.in)

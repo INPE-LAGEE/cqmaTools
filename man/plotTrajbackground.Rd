@@ -6,8 +6,8 @@
 \usage{
 plotTrajbackground(file.in, path.out, traj.interpol, traj.intersections,
   traj.plot, device, map.xlim, map.ylim, map.height, map.width, sec.width,
-  sec.height, prof.height, prof.width, nsd, maxfm.ppm, stations.df, plot2file,
-  logger, trajCnames, obsCnames, profileCnames, trajFileMet)
+  sec.height, prof.height, prof.width, nsd, maxfm.ppm, stations.df,
+  plot2file, logger, trajCnames, obsCnames, profileCnames, trajFileMet)
 }
 \arguments{
 \item{file.in}{A character. The path to a filtered observations file or flag filtered raw data}
