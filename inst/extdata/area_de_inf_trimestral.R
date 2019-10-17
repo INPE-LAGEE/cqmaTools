@@ -1,3 +1,6 @@
+stop("outdated")
+
+
 # compute the influence area
 library(raster)
 
