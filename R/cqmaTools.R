@@ -32,7 +32,7 @@
 filterTrajHeight <- function(file.vec, above, cnames){
   # check trajectories' height and make a vector of those to keep
   #cnames <- HYSPLIT.COLNAMES                                                    # column names of the input file    
-  file.dat.list <- .files2df(file.vec = file.vec, header = FALSE, 
+  file.dat.list <- files2df(file.vec = file.vec, header = FALSE, 
                              skip = 0, cnames = cnames)
   keep <- vector(mode = "logical", length = length(file.dat.list))
   keep <- lapply(file.dat.list, function(x){if(sum(x$height < above) > 0){return(FALSE)}; return(TRUE)}) # test
@@ -64,7 +64,7 @@ splitRawdata <- function(file.in, path.out, colname, keepFlags, cnames,
   #keepCols <- RAW.DATA.COLNAMES.KEEP                                            # keep these columns
   #cnamesTest <- RAW.DATA.COLNAMES.TESTDUPLICATED
   
-  file.dat <- .file2df(file.in = file.in, header = FALSE, skip = 0,             # read data
+  file.dat <- file2df(file.in = file.in, header = FALSE, skip = 0,             # read data
                        cnames = cnames)
   # filter data
   file.dat <- .filterDataframe(df = file.dat, keepCols = keepCols,              # filter using flag attribute
@@ -130,7 +130,7 @@ intersectTraj <- function(file.vec, limit.in, cnames, srs){
     warning("No input files!")
     return(list(file.vec, intersect.dat))
   }
-  traj.dat.list <- .files2df(file.vec = file.vec, header = FALSE, 
+  traj.dat.list <- files2df(file.vec = file.vec, header = FALSE, 
                              skip = 0, cnames = cnames)
   traj.spl.list <- parallel::mclapply(traj.dat.list, .traj2spLines, crs = sp::CRS(srs))  # get SpatialLines from trajectories
   traj.intersect.list <- parallel::mclapply(traj.spl.list, 
@@ -355,7 +355,10 @@ plotTrajbackground <- function(file.in, path.out, traj.interpol,
                                trajCnames, obsCnames, profileCnames, trajFileMet){
   ## @param use.backgorund     A character. The type of filter used when calculating the background concentration. The options are c("median", "hard")
   
-  if(length(traj.interpol) == 0){warning("No interpolations!"); return()}
+  if (length(traj.interpol) == 0) {
+    warning("No interpolations!")
+    return()
+  }
   #trajCnames <- HYSPLIT.COLNAMES                                                # column names of the trajectory files
   #obsCnames <- RAW.DATA.COLNAMES.KEEP                                           # filtered observation column names
   #profileCnames <- PROFILE.COLNAMES
@@ -364,7 +367,7 @@ plotTrajbackground <- function(file.in, path.out, traj.interpol,
   #
   # observation data
   #
-  raw.df <- .file2df(file.in = file.in, header = FALSE,                         # flag filtered raw data
+  raw.df <- file2df(file.in = file.in, header = FALSE,                         # flag filtered raw data
                      skip = 0, cnames = obsCnames) 
   raw.df["profile"] <- apply(raw.df[, profileCnames],                        # add profile column to raw data
                              MARGIN = 1, 
@@ -378,7 +381,7 @@ plotTrajbackground <- function(file.in, path.out, traj.interpol,
   #
   traj.file.vec <- c(traj.intersections[[1]], traj.plot)                        # all the trajectory file names 
   traj.file.vec <- traj.file.vec[!is.na(traj.file.vec)]                         # remove NAs
-  traj.dat.list <- .files2df(file.vec = traj.file.vec,                          # read the trajectory files into a list of data.frames 
+  traj.dat.list <- files2df(file.vec = traj.file.vec,                          # read the trajectory files into a list of data.frames 
                              header = FALSE, skip = 0, cnames = trajCnames)
   traj.dat.list <- .listname2data.frame(df.list = traj.dat.list,                # add file name as column
                                         colname = "file.vec")
@@ -421,26 +424,19 @@ plotTrajbackground <- function(file.in, path.out, traj.interpol,
   profile.vec <- unique(unlist(interpol.df["profile"]))                         # each profile to process below
   filenames <- vector(mode = "character", length = 0)                           # files created on this function
   profile.all <- data.frame()                                                   # keep the profile data  
-  for(prof in profile.vec){
+  for (prof in profile.vec) {
     log4r::debug(logger, paste(" - - processing profile ", prof, sep = ""))
     #
     # merge data
     #
     
-    
-    
-    
-    
-    
     #---- TODO: error ----
     # nrow(prof.obs) == 0 because the naming convention of profile changed????
     prof.obs <- raw.df[raw.df$profile == prof, ]                                # observed data
-    
-    
-    
-    
-    
-    
+    if (nrow(prof.obs) < 1) {
+      log4r::debug(logger, paste(" - - No observations found for ", prof, sep = ""))
+      next()
+    }
     
     prof.int <- interpol.df[interpol.df$profile == prof, ]                      # interpolated data
     prof.isec <- intersec.df[intersec.df$profile == prof, ]                     # trajectory data of the intersections
@@ -453,7 +449,12 @@ plotTrajbackground <- function(file.in, path.out, traj.interpol,
     #
     # background calculation
     #
-    back.df <- .background.softrules(data.vec = as.vector(unlist(prof.obs["interpolated"])), 
+    my_data_vec <- as.vector(unlist(prof.obs["interpolated"]))
+    if (length(my_data_vec) < 2) {
+      stop(sprintf("Profile %s doesn't have enough heights.", prof))
+      #next()
+    }
+    back.df <- .background.softrules(data.vec = my_data_vec, 
                                      nsd = nsd, maxfm.ppm = maxfm.ppm)
     #
     # merge more data
@@ -560,21 +561,25 @@ plotTrajbackground <- function(file.in, path.out, traj.interpol,
   }
   # write profile data
   file.profile <- file.path(path.out, paste(basename(file.in), "_results.txt", sep = ""), fsep = .Platform$file.sep)    
-  profile.all <- profile.all[, c("profile", "file.vec", "site", 
-                                 "lon", "lat", "height", 
-                                 "year", "month", "day", "hour", "min", 
-                                 "flask", "eventnumber", 
-                                 "observed", "background", "interpolated", "outlier", 
-                                 "filerow", "V1", "V2", 
-                                 "syear", "smonth", "sday", "shour", "smin", 
-                                 "V8", "V9", 
-                                 "slon", "slat", "sheight", "spressure")]
   if(nrow(profile.all) > 0){
+    profile.all <- profile.all[, intersect(colnames(profile.all), 
+                                           c("profile", "file.vec", "site", 
+                                             "lon", "lat", "height", 
+                                             "year", "month", "day", "hour", "min", 
+                                             "flask", "eventnumber", 
+                                             "observed", "background", "interpolated", "outlier", 
+                                             "filerow", "V1", "V2", 
+                                             "syear", "smonth", "sday", "shour", "smin", 
+                                             "V8", "V9", 
+                                             "slon", "slat", "sheight", "spressure"))]
     profile.all <- profile.all[with(profile.all, order( profile, -height)), ]     # order
     rownames(profile.all) <- NULL
     #utils::write.table(profile.all, file = file.profile)
     #filenames <- append(filenames, file.profile)
+  }else{
+    warning("profile.all is empty")
   }
+  
   return(list(filenames, profile.all))
 }
 
@@ -605,7 +610,7 @@ plotTrajYear <- function(file.vec, path.out, device, map.xlim, map.ylim, map.hei
   #
   trajCnames <- c("V1", "V2", "year", "month", "day", "hour", "min",            # column names of the trajectory files
                   "V8", "V9", "lat", "lon", "height", "pressure")   
-  traj.dat.list <- .files2df(file.vec = file.vec, header = FALSE, skip = 0,     # read all the trajectory files into a list of data.frames
+  traj.dat.list <- files2df(file.vec = file.vec, header = FALSE, skip = 0,     # read all the trajectory files into a list of data.frames
                              cnames = trajCnames)
   traj.dat.list <- parallel::mclapply(1:length(traj.dat.list),                  # add file name as a column to each data.frame
                                       function(x, dat.list){
@@ -675,7 +680,7 @@ intersectTraj.intersect <- function(g2, g1, byid){
 #' @export
 computeTrajTime <- function(file.vec, line.vec, cnames){
   #cnames = HYSPLIT.COLNAMES
-  data.list <- .files2df(file.vec = file.vec, header = FALSE, skip = 0, cnames = cnames)
+  data.list <- files2df(file.vec = file.vec, header = FALSE, skip = 0, cnames = cnames)
   lapply(seq_along(data.list), function(x, data.list, line.vec){
     res <- NA
     adf <- data.list[[x]]
