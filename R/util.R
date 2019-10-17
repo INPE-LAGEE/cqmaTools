@@ -158,10 +158,10 @@ df2text <- function(a.df){
 #' @export
 removeHeaders <- function(file.vec, path.out, skip, cnames){
   #cnames <- HYSPLIT.COLNAMES                                                    # column names of hysplit files
-  file.dat.list <- .files2df(file.vec = file.vec,  header = FALSE, 
+  file.dat.list <- files2df(file.vec = file.vec,  header = FALSE, 
                              skip = skip, cnames = cnames)
   res <- list()
-  for(i in 1:length(file.dat.list)){
+  for (i in 1:length(file.dat.list)) {
     file.dat <- file.dat.list[[i]]
     newfile <- file.path(path.out, names(file.dat.list)[[i]], fsep = .Platform$file.sep)  
     utils::write.table(file.dat, file = newfile, col.names = FALSE, row.names = FALSE, quote = FALSE)
@@ -328,17 +328,23 @@ removeHeaders <- function(file.vec, path.out, skip, cnames){
 
 
 
-# Read a text file made of observations
-#
-# @param file.in  A character. Path to a text file with data
-# @param header   A logical. Does the first column contain column names?
-# @param skip     A numeric. Number of lines to skip
-# @param cnames   A vector character. The names of the columns
-# @return         A data.frame
+#' Read a text file made of observations
+#'
+#' @param file.in  A character. Path to a text file with data
+#' @param header   A logical. Does the first column contain column names?
+#' @param skip     A numeric. Number of lines to skip
+#' @param cnames   A vector character. The names of the columns
+#' @return         A data.frame
+#' @export
+file2df <- function(file.in, header, skip, cnames){
+  .file2df(file.in, header, skip, cnames)
+}
+
 .file2df <- function(file.in, header, skip, cnames){
   file.dat <- utils::read.table(file = file.in, sep = "", header = header, 
                                 skip = skip, stringsAsFactors = FALSE)
-  if(!header){colnames(file.dat) <- cnames}
+  if (!header)
+    colnames(file.dat) <- cnames
   return(file.dat)
 }
 
@@ -671,7 +677,7 @@ removeHeaders <- function(file.vec, path.out, skip, cnames){
   # Number of starting locations                N
   # Starting location                           lat  lon  height(m)
   # Total runtime                               (+-) M (hr)
-  # Vertical motion option                      0 data   1 isob   2 risen  3 ….
+  # Vertical motion option                      0 data   1 isob   2 risen  3 ...
   # Top of model domain (m)                     e.g. 10000.0
   # Number of simultaneous input met fields     usually 1
   # Meteorological data grid # 1 directory      \main\sub\data\
@@ -1014,7 +1020,7 @@ removeHeaders <- function(file.vec, path.out, skip, cnames){
   wgs84 <-  sp::CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
   HYSPLIT.COLNAMES <- c("V1", "V2", "year", "month", "day", "hour", "min", 
                         "V8", "V9", "lat", "lon", "height", "pressure") 
-  traj.dat.list <- .files2df(file.vec = traj.file.vec,                          # read the trajectory files into a list of data.frames 
+  traj.dat.list <- files2df(file.vec = traj.file.vec,                          # read the trajectory files into a list of data.frames 
                              header = FALSE, skip = 0, cnames = HYSPLIT.COLNAMES)
   traj.dat.list <- .listname2data.frame(df.list = traj.dat.list,                # add file name as column
                                         colname = "file.vec")
