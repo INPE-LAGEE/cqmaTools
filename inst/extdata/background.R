@@ -44,9 +44,10 @@ suppressMessages(require(rgeos))
 suppressMessages(require(sp))
 suppressMessages(require(maps))
 
+setwd("/home/lagee/Documents/ghProjects/cqmaTools")
+
 suppressMessages(library(devtools))
 devtools::load_all()
-
 
 ####################################################################
 # WARNING: USE UNIX-LIKE OS
