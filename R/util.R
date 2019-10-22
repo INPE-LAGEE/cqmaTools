@@ -319,7 +319,7 @@ removeHeaders <- function(file.vec, path.out, skip, cnames){
                               return(df.list[[x]])
                             }, 
                             df.list = df.list
-  )
+                            )
   return(res)
 }
 
@@ -1033,6 +1033,9 @@ add_na_df <- function(list_of_df){
   is_na_vec <- sapply(list_of_df, function(x){
     if (length(x) == 1 && is.na(x))
         return(TRUE)
+    if (is.null(x))
+        return(TRUE)
+    
     return(FALSE)
   })
    
@@ -1045,6 +1048,8 @@ add_na_df <- function(list_of_df){
   # replace the NULL in the input list with the template_df 
   res <- lapply(list_of_df, function(x, template_df){
     if (length(x) == 1 && is.na(x))
+      return(template_df)
+    if (is.null(x))
       return(template_df)
     return(x)
   }, template_df = template_df)

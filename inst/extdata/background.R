@@ -66,24 +66,21 @@ test.path <- "/home/lagee/Documents/alber/test"
 # STATIONS
 #-------------------------------------
 stationfile <- c(
-  file.path(test.path, "stations", "rpbdaily", fsep = .Platform$file.sep), 
-  file.path(test.path, "stations", "ascdaily", fsep = .Platform$file.sep), 
-  file.path(test.path, "stations", "cptdaily", fsep = .Platform$file.sep)
+  file.path(test.path, "stations", "rpbdaily"), 
+  file.path(test.path, "stations", "ascdaily"), 
+  file.path(test.path, "stations", "cptdaily")
 )
-limit.shp <- file.path(test.path, "shp", "limite.shp", fsep = .Platform$file.sep)
-samerica.shp <- file.path(test.path, "shp", "continentalSouthAmericaLines.shp", 
-                          fsep = .Platform$file.sep)
-plot.path <- file.path(test.path, "plots", fsep = .Platform$file.sep)
+limit.shp <- file.path(test.path, "shp", "limite.shp")
+samerica.shp <- file.path(test.path, "shp", "continentalSouthAmericaLines.shp")
+plot.path <- file.path(test.path, "plots")
 
 # path to the resulting numeric files
 data.out.path <- "/home/lagee/Documents/alber/test/BKG_results"
 
 # still requires the gas attached to the path
-hysplit.sim.path <- file.path(test.path, "hysplitsimulations", 
-                              fsep = .Platform$file.sep) 
+hysplit.sim.path <- file.path(test.path, "hysplitsimulations") 
 
-rawdatafile.vec <- list.files(file.path(test.path, "rawdata", 
-                                        fsep = .Platform$file.sep), 
+rawdatafile.vec <- list.files(file.path(test.path, "rawdata"), 
                               full.names = TRUE, recursive = FALSE, 
                               include.dirs = FALSE)
 #-------------------------------------
@@ -428,6 +425,8 @@ for (i in 1:length(rawdatafile.vec)) {
     timezone = timezone, 
     searchTranslation = searchTranslation
   )
+  stopifnot(length(traj.interpolations) == length(traj.intersections[[1]]))
+  stopifnot(length(traj.interpolations) == length(traj.intersections[[2]]))
   #-----------------------------------------------------------------------------
   # flush the filter summary of the trajectories
   #-----------------------------------------------------------------------------
@@ -443,7 +442,6 @@ for (i in 1:length(rawdatafile.vec)) {
   if (plotAllTrajectories) {
     traj.plot <- hysplit.nohead.files[hysplit.nohead.files$keep == FALSE, "file.vec"]
   }
-  stopifnot(length(traj.interpolations) == length(traj.intersections[[1]]))
   plot.result <- plotTrajbackground(
     file.in = filterRawfile, 
     path.out = plot.path, 

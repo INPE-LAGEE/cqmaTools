@@ -129,8 +129,7 @@ intersectTraj <- function(file.vec, limit.in, cnames, srs){
   traj.intersect.list <- parallel::mclapply(traj.spl.list, 
                                             cqmaTools::intersectTraj.intersect, 
                                             g1 = limit.in, 
-                                            byid = c(FALSE, TRUE),
-                                            mc.cores = parallel::detectCores())              # intersetion of trajectories with the limit
+                                            byid = c(FALSE, TRUE))              # intersetion of trajectories with the limit
   traj.rowid.list <- parallel::mclapply(traj.intersect.list,                    # row id so the initial point of the intersection line in the trajectory
                                         function(x){
                                           if(is.null(x)){return(NULL)};
@@ -144,8 +143,7 @@ intersectTraj <- function(file.vec, limit.in, cnames, srs){
                                         return(
                                           traj.list[[x]][as.numeric(rowid.list[[x]]) + 1, ]
                                         )
-                                      }
-                                      ,                                         # return the next id after the intersection. This corresponds to the line's point falling beyond the limit (on the sea)
+                                      } ,                                         # return the next id after the intersection. This corresponds to the line's point falling beyond the limit (on the sea)
                                       traj.list = traj.dat.list, 
                                       rowid.list = traj.rowid.list)
   return(list(file.vec, intersect.dat))
@@ -281,7 +279,9 @@ crossdata <- function(traj.intersections, stations.df, tolerance.sec, timezone,
   
   # The second list contains the intersections. That is, the trajectories' first row over the sea. One row per trajectory
   trajrecords.df <- do.call("rbind", add_na_df(traj.intersections[[2]]))
-  
+ 
+  stopifnot(nrow(trajrecords.df) == length(traj.intersections[[2]]))
+   
   # which stations should be used for each trajectory interpolation?
   # This is the match of trajectories to stations for interpolation
   matchInterval <- .inInterval(val = unlist(trajrecords.df["lat"]),
@@ -300,7 +300,6 @@ crossdata <- function(traj.intersections, stations.df, tolerance.sec, timezone,
   }
   # add a column with normal dates instead of decimal year dates
   station.dat.list <- parallel::mclapply(station.dat.list, 
-                                         mc.cores = parallel::detectCores(),
                                          function(x){
                                            x["date"] <- unlist(lapply(unlist(x["datedec"]), .ydec2date)); 
                                            return(as.data.frame(x))
