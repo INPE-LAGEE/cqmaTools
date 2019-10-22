@@ -398,35 +398,7 @@ file2df <- function(file.in, header, skip, cnames){
 # @param year.dec A number repesenting a date as a decimal year. e.g. 2000.0013661202
 # @return         A character. e.g. 2000-01-01 11:59:59.999410
 .ydec2date <- function(year.dec){
-  daysperyear <- 365 # 365.25
-  y <- floor(year.dec)
-  m <- 0
-  ss <- 0
-  leap <- .isLeapYear(y)
-  firstday <- c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366) + as.numeric(c(FALSE, FALSE, rep(leap, 11))) # first day of each month
-  frac <- year.dec - y
-  frac.secs <- frac * (daysperyear + as.numeric(leap)) * 24 * 3600 # fraction of seconds
-  frac.days <- frac.secs / 3600 / 24                          # fraction of days
-  # get the month
-  for (i in 1:(length(firstday) - 1)){
-    start <- firstday[i]
-    end <- firstday[i + 1]
-    if(ceiling(frac.days) >= start && ceiling(frac.days) < end){
-      m <- i
-      break
-    }
-  }
-  # get the day of the month
-  d <- ceiling(frac.days) - firstday[m] + 1
-  #
-  frac.hours <- frac.secs / 3600 - floor(frac.days) * 24
-  frac.mins <- (frac.hours - floor(frac.hours)) * 60
-  ss <- frac.secs - (floor(frac.days) * 24 * 3600) - (floor(frac.hours) * 3600) - (floor(frac.mins) * 60)
-  return(paste(  
-    paste(y, sprintf("%02d", m), sprintf("%02d", d), sep = "-"), 
-    paste(sprintf("%02d", floor(frac.hours)), sprintf("%02d",floor(frac.mins)), sprintf("%02f",ss), sep = ":"), 
-    sep = " "
-  ))
+  return(as.character(lubridate::date_decimal(year.dec)))
 }
 
 
@@ -754,7 +726,7 @@ file2df <- function(file.in, header, skip, cnames){
 #
 # @param x                  A number indexing the current trajectory
 # @param traj.records       A data.frame of the trajectories' first rows over the sea. One row per trajectory
-# @param traj.data.match    A boolean matrix of the traj.records versus intervals. The intervals' limites are the ordered latitudes of the stations
+# @param traj.data.match    A boolean matrix of the traj.records versus intervals. The intervals' limits are the ordered latitudes of the stations
 # @param stations           A data.frame made of the name, longitude, latitude, and data file path of each of station. i.e c("name","lon", "lat", "file"). The data frame must be ordered by latitude to match the intervals in traj.data.match
 # @param stations.dat       A list of the data on each file of stations["file"]
 # @param searchTranslation  A number used to modify records' search on station data (in seconds).
@@ -767,6 +739,9 @@ file2df <- function(file.in, header, skip, cnames){
   res <- NA
   # get trajectory's date
   d <- unlist(traj.records[x, DATE.COLNAMES])
+  if (all(is.na(d)))
+      return(NA)
+  
   trajdate <- paste(
     paste(d[DATE.COLNAMES[1]] + 2000, 
           sprintf("%02d", d[DATE.COLNAMES[2]]), 
@@ -1043,6 +1018,39 @@ file2df <- function(file.in, header, skip, cnames){
 
 
 
+#' @title Replace NULLs in list with empty data.frames
+#' @name add_na_df
+#' @author Alber Sanchez, \email{alber.ipia@@inpe.br}
+#'
+#' @description Replace NULLs in list with empty data.frames. The data.frames in 
+#' the list have the same columns and data types.
+#'
+#' @param list_of_df A list of data.frame.
+#' @return           A list.
+#' @export
+add_na_df <- function(list_of_df){
+ 
+  is_na_vec <- sapply(list_of_df, function(x){
+    if (length(x) == 1 && is.na(x))
+        return(TRUE)
+    return(FALSE)
+  })
+   
+  # take the first non-empy data.frame
+  template_df <- list_of_df[[which(!(is_na_vec))[1]]]
+  
+  # replate the template values with NAs
+  template_df <- as.data.frame(lapply(template_df, function(x){NA}))
+
+  # replace the NULL in the input list with the template_df 
+  res <- lapply(list_of_df, function(x, template_df){
+    if (length(x) == 1 && is.na(x))
+      return(template_df)
+    return(x)
+  }, template_df = template_df)
+  
+  return(res)
+}
 
 
 
@@ -1067,3 +1075,6 @@ removeHeader <- function(file_path, col_names, skip){
   colnames(file.dat) <- col_names
   return(file.dat)
 }
+
+
+

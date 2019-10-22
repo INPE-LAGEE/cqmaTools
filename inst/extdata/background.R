@@ -16,8 +16,6 @@
 # for each trajectory' point-over-the-sea, we interpolate a gas concentration
 #-------------------------------------------------------------------
 # TODO:
-# - Build package
-# - Does constants work in packages?
 # - run alf co and co2 at the same time. co2 produces no output. The control of the cycle is not only site but site & gas
 # - add title to figures including gas name
 # - save summary figures
@@ -52,37 +50,14 @@ devtools::load_all()
 ####################################################################
 # WARNING: USE UNIX-LIKE OS
 ####################################################################
-# Taken from https://www.r-bloggers.com/identifying-the-os-from-r/
-get_os <- function(){
-  sysinf <- Sys.info()
-  if (!is.null(sysinf)) {
-    os <- sysinf['sysname']
-    if (os == 'Darwin')
-      os <- "osx"
-  }else{ 
-    ## mystery machine
-    os <- .Platform$OS.type
-    if (grepl("^darwin", R.version$os))
-      os <- "osx"
-    if (grepl("linux-gnu", R.version$os))
-      os <- "linux"
-  }
-  tolower(os)
-}
 if (get_os() == "windows") {
-  warning("Processing takes longer in windows because it is unable to use corrrectly the package parallel. See ?mclapply")
+  warning("Processing takes longer in windows because it is unable to use the package parallel. See ?mclapply")
 }
-# df2text <- function(df){
-#   t <- paste(colnames(df), collapse = " ")
-#   b <- paste(apply(df, 1 , paste, collapse = " "), collapse = "\n")
-#   return(paste(c(t, "\n", b), collapse = ""))
-# }
 ####################################################################
 # GET READY
 ####################################################################
-#hysplit.exec.path <- "/opt/hysplit/exec"
-#hysplit.work.path <- "/opt/hysplit/work"
 test.path <- "/home/lagee/Documents/alber/test"
+
 #-------------------------------------
 # BRIEFCASES
 #-------------------------------------
@@ -96,12 +71,21 @@ stationfile <- c(
   file.path(test.path, "stations", "cptdaily", fsep = .Platform$file.sep)
 )
 limit.shp <- file.path(test.path, "shp", "limite.shp", fsep = .Platform$file.sep)
-samerica.shp <- file.path(test.path, "shp", "continentalSouthAmericaLines.shp", fsep = .Platform$file.sep)
-plot.path <- file.path(test.path, "plots", fsep = .Platform$file.sep) # plot.path <- "/Volumes/LVG/cqmaTools/plots/"
-data.out.path <- "/home/lagee/Documents/alber/test/BKG_results"         # path to the resulting numeric files
-hysplit.sim.path <- file.path(test.path, "hysplitsimulations", fsep = .Platform$file.sep) # still requires the gas attached to the path
-rawdatafile.vec <- list.files(file.path(test.path, "rawdata", fsep = .Platform$file.sep), 
-                              full.names = TRUE, recursive = FALSE, include.dirs = FALSE)
+samerica.shp <- file.path(test.path, "shp", "continentalSouthAmericaLines.shp", 
+                          fsep = .Platform$file.sep)
+plot.path <- file.path(test.path, "plots", fsep = .Platform$file.sep)
+
+# path to the resulting numeric files
+data.out.path <- "/home/lagee/Documents/alber/test/BKG_results"
+
+# still requires the gas attached to the path
+hysplit.sim.path <- file.path(test.path, "hysplitsimulations", 
+                              fsep = .Platform$file.sep) 
+
+rawdatafile.vec <- list.files(file.path(test.path, "rawdata", 
+                                        fsep = .Platform$file.sep), 
+                              full.names = TRUE, recursive = FALSE, 
+                              include.dirs = FALSE)
 #-------------------------------------
 # LOG
 #-------------------------------------
@@ -109,21 +93,29 @@ logger <- create.logger()
 logfile(logger) <- file.path(test.path, "background.log")
 level(logger) <- "DEBUG"
 info(logger, "Start! ###############################################")
+
 ####################################################################
 # CONFIGURATION PARAMETERS
 ####################################################################
+
 #-------------------------------------
 # GENERAL
 #-------------------------------------
-timezone <- "GMT"                           # time zone used for data's dates and also for date computations
-tolerance.sec <- 10                         # date tolerance in seconds. A tolerance used when comparing dates
+# time zone used for data's dates and also for date computations
+timezone <- "GMT"
+
+# date tolerance in seconds. A tolerance used when comparing dates
+tolerance.sec <- 10
+
 #-------------------------------------
 # RAW DATA PARAMETERS
 #-------------------------------------
-flagcolname <- "flag"                       # name of a column name to filter raw data
-keepFlags <- c("...", "..>", "..<")                # flags to keep in the raw data
 
+# name of a column name to filter raw data
+flagcolname <- "flag"
 
+# flags to keep in the raw data
+keepFlags <- c("...", "..>", "..<")
 
 #-------------------------------------
 # INTERPOLATION PARAMETER
@@ -133,29 +125,51 @@ limit.sp <- readOGR(dsn = dirname(limit.shp),
                     layer = strsplit(basename(limit.shp), 
                                      split = '[.]')[[1]][[1]], 
                     verbose = FALSE) 
+
 samerica.sp <- readOGR(dsn = dirname(samerica.shp), 
                        layer = strsplit(basename(samerica.shp), 
                                         split = '[.]')[[1]][[1]], 
                        verbose = FALSE)
-searchTranslation <- (2 * 24 * 3600) * (-1) # time offset for the trajectory (once over the sea) records to match station's data. i.e 2 days are (2 * 24 * 3600) * (-1) seconds
-nsd <- 2                                    # number of +/- standard deviations used to filter the interpolated data into backgorund
-maxfm.ppm <- 1.5                            # maximum number of units away from the central tendency
-# Hard is applying twice the soft. 
-# Soft removes using a number standard deviations (nsd) to identify outliers and replace them by a trend measure i.e themedian
-# Median replace all the values by the median afther filtering outliers 
-# Cluster splits the data and applies soft in each cluster
+
+# time offset for the trajectory (once over the sea) records to match station's
+# data. i.e 2 days are (2 * 24 * 3600) * (-1) seconds
+searchTranslation <- (2 * 24 * 3600) * (-1)
+
+# number of +/- standard deviations used to filter the interpolated data into 
+# backgorund
+nsd <- 2
+
+# maximum number of units away from the central tendency
+maxfm.ppm <- 1.5
+
+# TYPES of background computation:
+# - Hard is applying twice the soft. 
+# - Soft removes using a number standard deviations (nsd) to identify outliers 
+#   and replace them by a trend measure i.e themedian
+# - Median replace all the values by the median afther filtering outliers 
+# - Cluster splits the data and applies soft in each cluster
+
 #-------------------------------------
 # TRAJECTORY PARAMETERS
 #-------------------------------------
-backTrajTime <- (10 * 24 * 3600) * (-1)     # Time to modify the hysplit file search. 10 days into the past is (10 * 24 * 3600) * (-1)
-keepAbove <- 0                              # keep trajectories above this height treshold
-simHeaderLines <- 7                         # Number of lines to remove from the header of hysplit's simulation files
-inbound.minx = -70                          # Filter trajectories which intersect west of this
+
+# Time to modify the hysplit file search. 10 days into the past is (10 * 24 * 3600) * (-1)
+backTrajTime <- (10 * 24 * 3600) * (-1)
+
+# keep trajectories above this height treshold
+keepAbove <- 0
+
+# Number of lines to remove from the header of hysplit's simulation files
+simHeaderLines <- 7
+
+# Filter trajectories which intersect west of this
+inbound.minx = -70
 inbound.maxx = NA
 inbound.miny = NA
 inbound.maxy = NA
-plotAllTrajectories <- TRUE                # Are filtered trajectories included in plots?
 
+# Are filtered trajectories included in plots?
+plotAllTrajectories <- FALSE
 
 # column names of hysplit files
 HYSPLIT.COLNAMES <- c("V1", "V2", "year", "month", "day", "hour", "min", 
@@ -239,11 +253,11 @@ for (i in 1:length(rawdatafile.vec)) {
   hysplit.nohead.path <- file.path(base.path, "simNoHead", fsep = .Platform$file.sep)
   # create the missing folders
   folder.vec <- c(rawDataClean.path, hysplit.nohead.path)
-  for(folder in folder.vec[!dir.exists(folder.vec)]){
+  for (folder in folder.vec[!dir.exists(folder.vec)]) {
     dir.create(folder, showWarnings = TRUE, recursive = TRUE, mode = "0777")
   }
   # delete the old files
-  for(folder in folder.vec[dir.exists(folder.vec)]){
+  for (folder in folder.vec[dir.exists(folder.vec)]) {
     files.vec <- list.files(path = folder, full.names = TRUE)
     file.remove(files.vec)
   }
@@ -254,44 +268,31 @@ for (i in 1:length(rawdatafile.vec)) {
                                 path.out = rawDataClean.path, 
                                 colname = flagcolname, 
                                 keepFlags = keepFlags,
-                                cnames = RAW.DATA.COLNAMES)
+                                cnames = RAW.DATA.COLNAMES,
+                                keepCols = RAW.DATA.COLNAMES,
+                                cnamesTest = RAW.DATA.COLNAMES)
   wrongcoords <- filterRawfile[[3]]
   duplicatedRows <- filterRawfile[[2]]
   filterRawfile <- filterRawfile[[1]]
-  if(nrow(wrongcoords)  > 0){
-    warn(logger, paste("Wrong coords found in raw data file:", 
-                       nrow(wrongcoords), "\n", df2text(df = wrongcoords), 
+  if (nrow(wrongcoords)  > 0) {
+    logger::log_warn(paste("Wrong coords found in raw data file:", 
+                       nrow(wrongcoords), "\n", df2text(wrongcoords), 
                        sep  = " "))
   }
-  if(nrow(duplicatedRows)  > 0){
-    warn(logger, paste("Duplicated or inconsistent  rows in raw data file:", 
-                       nrow(duplicatedRows), "\n", df2text(df = duplicatedRows), 
+  if (nrow(duplicatedRows)  > 0) {
+    logger::log_warn(paste("Duplicated or inconsistent  rows in raw data file:", 
+                       nrow(duplicatedRows), "\n", df2text(duplicatedRows), 
                        sep  = " "))
   }
   #-----------------------------------------------------------------------------
   debug(logger, "step 02 - Check Hysplit files")
   #-----------------------------------------------------------------------------
-  #exec.file <- file.path(hysplit.exec.path, "hyts_std", fsep = .Platform$file.sep)
-  #if(get_os() == "windows"){
-  #  exec.file <- file.path(hysplit.exec.path, "hyts_std.exe", fsep = .Platform$file.sep)
-  #}
-  hysplit.gas.path <- file.path(hysplit.sim.path, gas, fsep = .Platform$file.sep)       # add gass to path of the hysplit files
-  #if(file.exists(exec.file)){
-  #  hysplit.files <- .runsimulation(path.in = rawDataClean.path, 
-  #                                  backTrajTime = backTrajTime, 
-  #                                  hysplit.exec.path = hysplit.exec.path, 
-  #                                  hysplit.work.path = hysplit.work.path, 
-  #                                  path.out = hysplit.gas.path, 
-  #                                  timezone = timezone)
-  #}else{
-  #warn(logger, "Hysplit wasn't found. This script will try to continue...")
-  if(length(list.files(hysplit.gas.path)) == 0){
-    error(logger, paste("Unable to continue: No hysplit and no trajectory files in", hysplit.gas.path, sep = " "))
+  # add the gas name to path of the hysplit files
+  hysplit.gas.path <- file.path(hysplit.sim.path, gas, fsep = .Platform$file.sep)
+  if (length(list.files(hysplit.gas.path)) == 0) {
+    logger::log_error(paste("Unable to continue: No hysplit and no trajectory files in", hysplit.gas.path, sep = " "))
     stop()
-    #}else{
-    #  warn(logger, "Found trajectory files. This script is able to continue!")
   }
-  #}
   #-----------------------------------------------------------------------------
   debug(logger, "step 03 - Remove header from HYSPLIT files")
   #-----------------------------------------------------------------------------
@@ -299,19 +300,18 @@ for (i in 1:length(rawdatafile.vec)) {
                          full.names = TRUE, 
                          pattern = paste(toupper(site), "_*", sep = ""), 
                          ignore.case = TRUE)
-  if(length(file.vec) == 0){
+  if (length(file.vec) == 0) {
     warn(logger, paste("No trajectories found for", rawdatafile.path, sep = " "))
     break
   }
+  
   hysplit.nohead.files <- tryCatch({
     removeHeaders(file.vec = file.vec, 
-                   path.out = hysplit.nohead.path, 
-                   skip = simHeaderLines, 
+                  path.out = hysplit.nohead.path, 
+                  skip = simHeaderLines, 
                   cnames = HYSPLIT.COLNAMES)    
   }, error = function(e) {
-    error(logger, "Error in stop 3. Something wrong with HYSPLIT files")
-  }, finally={
-    # next
+    logger::log_error("Error in step 3. Something is wrong with the HYSPLIT files")
   })
   hysplit.nohead.files <- data.frame(as.vector(unlist(hysplit.nohead.files)), 
                                      rep(TRUE, times = length(hysplit.nohead.files)), 
@@ -330,12 +330,11 @@ for (i in 1:length(rawdatafile.vec)) {
   hysplit.nohead.files <- merge(hysplit.nohead.files, hysplit.traj.files, 
                                 by = "file.vec", all = TRUE)
   # report
-  if(sum(!hysplit.traj.files["above"]) > 0){
+  if (sum(!hysplit.traj.files["above"]) > 0) {
     warn(logger,
          paste("Some trajectories hit the gound: ", 
                sum(!hysplit.traj.files["above"]),  sep = "")
     )
-    #debug(logger,paste("Some trajectories hit the gound: ", sum(!hysplit.traj.files["above"]), "\n", paste(hysplit.traj.files[!hysplit.traj.files["above"], 1], collapse = " \n"), sep = ""))
   }
   # update
   hysplit.nohead.files["keep"] <- hysplit.nohead.files["keep"] & hysplit.nohead.files["above"]
@@ -348,7 +347,7 @@ for (i in 1:length(rawdatafile.vec)) {
   )), 
   limit.in = limit.sp, cnames = HYSPLIT.COLNAMES, srs = SPATIAL.REFERENCE.SYSTEM)
   #-----------------------------------------------------------------------------
-  debug(logger, "step 06 - Filter trajectories which do not reach the sea")
+  log4r::debug(logger, "step 06 - Filter trajectories which do not reach the sea")
   #-----------------------------------------------------------------------------
   # run the filter
   traj.2thesea <- trajreachthesea(traj.intersections = traj.intersections)
@@ -362,9 +361,8 @@ for (i in 1:length(rawdatafile.vec)) {
     traj.inland <- !traj.2thesea["sea"]
   }
   if (sum(traj.inland) > 0 | length(traj.inland) == 0) {
-    warn(logger, paste("Some trajectories don't reach the sea: ", 
+    log4r::warn(logger, paste("Some trajectories don't reach the sea: ", 
                        sum(traj.inland), sep = ""))
-    #debug(logger, paste("Some trajectories don't reach the sea: ", sum(traj.inland), " \n", paste(traj.2thesea[traj.inland, 1], collapse = " \n"), sep = ""))
   }
   # update
   hysplit.nohead.files["keep"] <- hysplit.nohead.files["keep"] & hysplit.nohead.files["sea"]
@@ -418,7 +416,7 @@ for (i in 1:length(rawdatafile.vec)) {
   hysplit.nohead.files["keep"] <- hysplit.nohead.files["keep"] & hysplit.nohead.files["inStation"]
   hysplit.nohead.files[is.na(hysplit.nohead.files["keep"]), "keep"] <- FALSE
   #-----------------------------------------------------------------------------
-  debug(logger, "step 09 - Interpolate data for the trajectory's over-the-sea point to the metereological stations")
+  log4r::debug(logger, "step 09 - Interpolate data for the trajectory's over-the-sea point to the metereological stations")
   #-----------------------------------------------------------------------------
   keepAaboveAseaAstation <- as.vector(unlist(hysplit.nohead.files["keep"]))
   traj.intersections[[1]] <- traj.intersections[[1]][keepAaboveAseaAstation]
@@ -445,7 +443,7 @@ for (i in 1:length(rawdatafile.vec)) {
   if (plotAllTrajectories) {
     traj.plot <- hysplit.nohead.files[hysplit.nohead.files$keep == FALSE, "file.vec"]
   }
-  
+  stopifnot(length(traj.interpolations) == length(traj.intersections[[1]]))
   plot.result <- plotTrajbackground(
     file.in = filterRawfile, 
     path.out = plot.path, 

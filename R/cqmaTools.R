@@ -7,14 +7,6 @@
 
 #---- TODO: ----
 
-#---- How to install: ----
-# sudo apt-get install gdal-bin libgdal1-dev libproj-dev
-# install.packages(c("roxygen2", "log4r", "fpc", "ggplot2"))
-# install.packages(c("rgdal", "rgeos", "sp", "maps"))
-# library(cqmaTools)
-
-
-
 #---- BACKGROUND ----
 
 
@@ -46,7 +38,8 @@ filterTrajHeight <- function(file.vec, above, cnames){
 #' @name splitRawdata
 #' @author Alber Sanchez, \email{alber.ipia@@inpe.br}
 #'
-#' @description Split a single raw data file. The output files are prefixed with "traj_specs_".
+#' @description Split a single raw data file. The output files are prefixed with 
+#' "traj_specs_".
 #'
 #' @param file.in    A character.Path to a raw data file
 #' @param path.out   A character. Path to the folder for storing the resulting files
@@ -55,7 +48,7 @@ filterTrajHeight <- function(file.vec, above, cnames){
 #' @param cnames     A character vector. The name of the columns of the raw data file
 #' @param keepCols   A character vector. The column names of the raw data file to keep after filtering
 #' @param cnamesTest A character vector. The column names used for testing duplicated rows in the filtered data
-#' @return           A list iof three. A character with the name of the new file, a data.frame of duplicated or inconsistent rows, and a data.frame of coordinates which were changed because they have the wrong sign
+#' @return           A list of three. A character with the name of the new file, a data.frame of duplicated or inconsistent rows, and a data.frame of coordinates which were changed because they have the wrong sign
 #' @export
 splitRawdata <- function(file.in, path.out, colname, keepFlags, cnames, 
                          keepCols, cnamesTest){
@@ -136,7 +129,8 @@ intersectTraj <- function(file.vec, limit.in, cnames, srs){
   traj.intersect.list <- parallel::mclapply(traj.spl.list, 
                                             cqmaTools::intersectTraj.intersect, 
                                             g1 = limit.in, 
-                                            byid = c(FALSE, TRUE))              # intersetion of trajectories with the limit
+                                            byid = c(FALSE, TRUE),
+                                            mc.cores = parallel::detectCores())              # intersetion of trajectories with the limit
   traj.rowid.list <- parallel::mclapply(traj.intersect.list,                    # row id so the initial point of the intersection line in the trajectory
                                         function(x){
                                           if(is.null(x)){return(NULL)};
@@ -267,45 +261,60 @@ trajOutInterpolation <- function(traj.intersections, stations.df){
 #' @param searchTranslation  A numeric. The number of seconds for searching metereological station data
 #' @return                   A list of numeric. Each number is the interpolation result from the matching stations
 #' @export
-crossdata <- function(traj.intersections, stations.df, tolerance.sec, timezone, searchTranslation){
+crossdata <- function(traj.intersections, stations.df, tolerance.sec, timezone, 
+                      searchTranslation){
   interpolation.res <- list()
-  stations.df <- stations.df[order(stations.df$lat),]                           # sort by latitude. This is mandatory
-  if(length(traj.intersections[[1]]) == 0){return(interpolation.res)}
-  if(length(traj.intersections[[2]]) == 0){return(interpolation.res)}
+  # sort by latitude. This is mandatory
+  stations.df <- stations.df[order(stations.df$lat),]                           
+  if (length(traj.intersections[[1]]) == 0)
+    return(interpolation.res)
+  if (length(traj.intersections[[2]]) == 0)
+    return(interpolation.res)
+  
   # filter latitudes
   # joins all the data.frames from records into a single one. 
   # NOTE1: it assumes all the data.frames have the same columns, in the same order
   # NOTE2: it assumes a single row on each record. Otherwise the following calculations are WRONG
-  trajfiles <- unlist(traj.intersections[[1]])                                  # The first list contains the paths to trajectory files
-  trajrecords.df <- do.call("rbind", traj.intersections[[2]])                   # The second list contains the intersections. That is, the trajectories' first row over the sea. One row per trajectory
-  matchInterval <- .inInterval(val = unlist(trajrecords.df["lat"]),             # which stations should be used for each trajectory interpolation? . This is the match of trajectories to stations for interpolation
+  
+  # The first list contains the paths to trajectory files
+  trajfiles <- unlist(traj.intersections[[1]])
+  
+  # The second list contains the intersections. That is, the trajectories' first row over the sea. One row per trajectory
+  trajrecords.df <- do.call("rbind", add_na_df(traj.intersections[[2]]))
+  
+  # which stations should be used for each trajectory interpolation?
+  # This is the match of trajectories to stations for interpolation
+  matchInterval <- .inInterval(val = unlist(trajrecords.df["lat"]),
                                vec = unlist(stations.df["lat"])) 
   out <- matchInterval[,1] == FALSE & matchInterval[,2] == FALSE
-  if(sum(out) > 0){
-    warning("Trajectories falling out of interpolation zone:", sum(out), " \n", paste(trajfiles[out], collapse = " \n"))
-  }
+  if (sum(out, na.rm = TRUE) > 0)
+    warning("Trajectories falling out of interpolation zone:", 
+            sum(out, na.rm = TRUE), " \n", 
+            paste(trajfiles[which(out)], collapse = " \n"))
   # read station's data from files
   station.dat.list <- list()
-  for(i in 1:nrow(stations.df)){
+  for (i in 1:nrow(stations.df)) {
     station.dat <- utils::read.table(file = as.character(stations.df[i, "stationfile"]), sep = "", header = FALSE)
     colnames(station.dat) <- c("datedec", "V2")
     station.dat.list[[i]] <- station.dat
   }
-  # add a column with normal dates intead of decimal year dates
+  # add a column with normal dates instead of decimal year dates
   station.dat.list <- parallel::mclapply(station.dat.list, 
+                                         mc.cores = parallel::detectCores(),
                                          function(x){
                                            x["date"] <- unlist(lapply(unlist(x["datedec"]), .ydec2date)); 
                                            return(as.data.frame(x))
                                          }) # stations' data
   # do the interpolation
   interpolation.res <- lapply(
-    1:length(trajfiles), 
+    1:nrow(trajrecords.df), 
     .crossdata.aux, 
     traj.records = trajrecords.df, 
     traj.data.match = matchInterval, 
     stations = stations.df, 
     stations.dat = station.dat.list, 
-    searchTranslation = searchTranslation,                                      # match station's data X days before the records' data
+    # match station's data X days before the records' data
+    searchTranslation = searchTranslation,
     timezone = timezone, 
     tolerance.sec = tolerance.sec
   )
@@ -404,8 +413,10 @@ plotTrajbackground <- function(file.in, path.out, traj.interpol,
   #
   # process intersections
   #
+  
   intersec.df <- cbind(basename(traj.intersections[[1]]), 
-                       do.call("rbind", traj.intersections[[2]]))
+                       do.call("rbind", add_na_df(traj.intersections[[2]])))
+  
   intersec.df["filerow"] <- as.numeric(rownames(intersec.df))
   colnames(intersec.df) <- c("file.vec", "V1", "V2", "syear", "smonth",         # rename columns
                              "sday", "shour", "smin", "V8", "V9", 
