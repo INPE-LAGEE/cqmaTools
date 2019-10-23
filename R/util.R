@@ -1082,4 +1082,19 @@ removeHeader <- function(file_path, col_names, skip){
 }
 
 
-
+#' @title Compute the concentration on the ground
+#' @name floorconcentration
+#' @author Alber Sanchez, \email{alber.ipia@@inpe.br}
+#'
+#' @description Compute the concentration on the ground
+#' 
+#' @param dif_obs_bkg  A numeric. The difference between the observed conetration and the background concentration
+#' @param hfloor       A numeric. The hieght of the floor
+#' @param temp         A numeric. The tempearture of the first observation above the floor
+#' @param height       A numeric. The height of the first observaton above the floor
+#' @param molair       A numeric. The molarity of the air
+#' @return             A numeric. The concentration on the ground
+floorconcentration <- function(dif_obs_bkg, hfloor, temp, height, molair){
+  ((dif_obs_bkg * exp(-hfloor / 1013.25 / 7) / 0.0000820574587 / (temp + 273 + ((height - hfloor) * 0.0059))) + (molair * dif_obs_bkg))/2
+  # ((S16         * EXP(-P$1    / 1013.25 / 7)/  F$2             / (U16  + 273 + ((P16 -    P$1   ) * 0.0059))) + (Y16 *    S16        ))/2
+}
