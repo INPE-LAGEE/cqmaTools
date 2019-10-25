@@ -1,4 +1,4 @@
-rly influence area
+# compute the yearly influence area
 
 #---- TODO ----
 
@@ -208,7 +208,7 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
     print(sprintf("Site: %s Year: %s Treshold: %s", my_site, my_year, my_treshold)) 
     data_vector <- traj_by_year %>% 
       dplyr::filter(site == my_site, traj_year == my_year) %>% 
-      dplyr::mutate("mean_trajectory" = total_site / 1, 
+      dplyr::mutate("mean_trajectory" = total_year/ 1, 
                     "treshold" = max(mean_trajectory) * my_treshold) %>% 
       dplyr::filter(mean_trajectory >= treshold) %>% 
       ensurer::ensure_that(nrow(.) > 0, err_desc = "No data found!") %>% 
@@ -315,4 +315,3 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
     rm(data_vector)
   }
 }
-
