@@ -739,13 +739,18 @@ getHistoryAC <- function(file.in){
   file.dat <- readLines(file.in, skipNul = TRUE, warn = FALSE)
   hs <- grep("HISTORY>", file.dat)
   # find the commands in the text
-  hA <- grep("HISTORY> A", file.dat, ignore.case = TRUE)
-  hC <- grep("HISTORY> C", file.dat, ignore.case = TRUE)
+  hA <- grep("^HISTORY> A$", file.dat, ignore.case = TRUE)
+  hC <- grep("^HISTORY> C$", file.dat, ignore.case = TRUE)
   if(length(hA) == 0 | length(hC) == 0){
+    warning(sprintf("HISTORY A or C not found in: %s", file.in))
     pres <- cbind(as.data.frame(t(rep(NA, time = 16))), profile)
     names(pres) <- c("sample", "plan", "start", "end", "min", "max", "mean", "temperature (C)", "humidity (%RH)", "pressure (mbar)", "planmts", "startmts", "endmts", "minmts", "maxmts", "meanmts", "profile")
     return(pres)
   }
+  if(length(hA) > 1 || length(hC) > 1){
+    stop(sprintf("Ambiguos HISTORY tag found in: %s", file.in))
+  }
+
   # get the text for HISTORY> A
   hA.dat <- file.dat[(hA + 1):hs[match(hA, hs) + 1]]
   hA.dat <- hA.dat[1:(length(hA.dat) - 1)]                                      # removes the last line
