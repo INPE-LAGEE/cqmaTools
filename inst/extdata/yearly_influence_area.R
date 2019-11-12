@@ -18,8 +18,8 @@ out_dir <- "/home/lagee/Dropbox/DADOS LaGEE/ScriptsR_Figures/influence_area_3500
 HYSPLIT.COLNAMES <- c("V1", "V2", "year", "month", "day", "hour", "min", 
                       "V8", "V9", "lat", "lon", "height", "pressure") 
 grid_resolution <- 1 # DO NOT CHANGE!
-grid_lon_range <- c(-80, -30)
-grid_lat_range <- c(-40, 10) 
+grid_lon_range <- c(-180, 180)
+grid_lat_range <- c(-90, 90) 
 
 site_location_tb <- tribble( 
   ~site, ~longitude, ~latitude, 
@@ -134,6 +134,8 @@ new_raster <- function(grid_resolution, grid_lon_range, grid_lat_range) {
 
 grid_table <- expand.grid(seq(min(grid_lon_range), by = grid_resolution, length.out = diff(grid_lon_range)), 
                           seq(min(grid_lat_range), by = grid_resolution, length.out = diff(grid_lat_range))) %>% 
+  #grid_table <- expand.grid(seq(-180, by = grid_resolution, length.out = 361), 
+  #                        seq(-90, by = grid_resolution, length.out = 181)) %>% 
   tibble::as_tibble() %>% 
   dplyr::rename(lon = Var1, lat = Var2) %>% 
   dplyr::mutate(sp_index = stringr::str_c(floor(lon), '_', floor(lat))) %>% 
@@ -193,7 +195,7 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
                         options = c('TFW=YES'))
     
     data_vector %>% 
-      write.table(file = file.path(out_dir, paste0(out_file, ".csv")))
+      write.table(file = file.path(out_dir, paste0(out_file, ".txt")))
     rm(data_vector)
     
 }
@@ -251,7 +253,7 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
                         options = c('TFW=YES'))
     
     data_vector %>% 
-      write.table(file = file.path(out_dir, paste0(out_file, ".csv")))
+      write.table(file = file.path(out_dir, paste0(out_file, ".txt")))
     rm(data_vector)
   }
 }
@@ -310,8 +312,6 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
                         filename = file.path(out_dir,  paste0(out_file, ".tif")), 
                         options = c('TFW=YES'))
     
-    data_vector %>% 
-      write.table(file = file.path(out_dir, paste0(out_file, ".csv")))
     rm(data_vector)
   }
 }
