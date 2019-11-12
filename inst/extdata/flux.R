@@ -10,19 +10,19 @@ library(devtools)
 devtools::load_all()
 
 
-s = c('alf','rba','san','tab','tef')
-#site <- "rba"
+#s = c('alf','rba','san','tab','tef')
+site <- "alf"
 
 for (site in s) {
-  gas <- "n2o"   # ATENCAO --->> NAO ESQUECER DE MODIFICAR A MASSA MOLAR DO GAS NA LINHA 197
+  gas <- "co2"   # ATENCAO --->> NAO ESQUECER DE MODIFICAR A MASSA MOLAR DO GAS NA LINHA 200 (CO2=12 /CO=28 /CH4=16 /N2O=44)
   data.in.path <- "/home/lagee/Documents/alber/test/briefcase"
   #file.path(data.in.path, "rba.co2_bkgTable.txt")
   #file.path(data.in.path, "RBA_briefdata.txt")
   #-------------------------------------
   # get data resulting from scripts background.R & briefcases.R
   #-------------------------------------
-  briefcase.df <- read.table(file.path(paste(data.in.path,'/',toupper(site),"_briefdata.txt", sep ='')))
-  profile.df <- read.table(file.path(paste(data.in.path,'/' ,site, ".", gas,"_bkgTable.txt", sep='')))
+  briefcase.df <- read.table(file.path(paste(data.in.path,'/',toupper(site),"_briefdata.txt", sep = '')))
+  profile.df <- read.table(file.path(paste(data.in.path,'/' ,site, ".", gas,"_bkgTable.txt", sep = '')))
   profbud.df <- merge(x = profile.df, y = briefcase.df,
                       by.x = c("profile", "height"),
                       by.y = c("profile", "planmts"),
@@ -197,7 +197,7 @@ for (site in s) {
   }
   names(budget) <- c("profile", "flux.umolmt2day")
   budget["gas"] <- gas
-  budget["ugCmt2day"] <- budget$flux.umolmt2day * 44
+  budget["ugCmt2day"] <- budget$flux.umolmt2day * 44                            #CO2=12 /CO=28 /CH4=16 /N2O=44
   budget["gCmt2day"] <- budget$ugCmt2day / 1000000
   budget <- cbind(budget, getDataFromProfile(prof.name = as.character(budget$profile)))
   write.table(budget, paste("/home/lagee/Dropbox/DADOS LaGEE/ScriptsR/Fluxo/", toupper(gas), '/','fluxo_',site,'_',gas,'.txt', sep=''), col.names = TRUE, row.names = FALSE)
