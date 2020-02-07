@@ -18,8 +18,8 @@ out_dir <- "/home/lagee/Dropbox/DADOS LaGEE/ScriptsR_Figures/influence_area_3500
 HYSPLIT.COLNAMES <- c("V1", "V2", "year", "month", "day", "hour", "min", 
                       "V8", "V9", "lat", "lon", "height", "pressure") 
 grid_resolution <- 1 # DO NOT CHANGE!
-grid_lon_range <- c(-180, 180)
-grid_lat_range <- c(-90, 90) 
+grid_lon_range <- c(-80, -30)
+grid_lat_range <- c(-30, 10) 
 
 site_location_tb <- tribble( 
   ~site, ~longitude, ~latitude, 
@@ -68,9 +68,11 @@ trajectory_tb <- trajectory_dir %>%
   dplyr::filter(lon >= grid_lon_range[1], lon <= grid_lon_range[2],
                 lat >= grid_lat_range[1], lat <= grid_lat_range[2]) %>% 
   dplyr::mutate(sp_index = stringr::str_c(floor(lon), '_', floor(lat)), 
-                traj_trimester = paste(traj_year,findInterval(traj_month, seq(1, 12, by = 3)), sep = '_')) %>% 
+                traj_trimester = paste(traj_year,findInterval(traj_month, seq(1, 12, by = 3)), sep = '_'), 
+                traj_trimester_total = paste(findInterval(traj_month, seq(1, 12, by = 3)), sep = '_')) %>% 
   dplyr::filter(height <= 3500) %>% 
-  ensurer::ensure_that(all(.$traj_trimester > 0 && .$traj_trimester < 5))
+  #ensurer::ensure_that(all(.$traj_trimester > 0 && .$traj_trimester < 5))
+  ensurer::ensure_that(all(.$traj_trimester_total > 0 && .$traj_trimester_total < 5))
 
 traj_by_year <- trajectory_tb %>% 
   dplyr::group_by(site, traj_year, sp_index) %>% 
@@ -120,6 +122,15 @@ my_sites <-  traj_by_trimester %>%
   dplyr::distinct() %>% 
   dplyr::arrange(site, year, trimester)
 
+traj_by_trimester_total <- trajectory_tb %>% 
+  dplyr::group_by(site, traj_trimester_total, sp_index) %>% 
+  dplyr::summarize(n()) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::rename("trimester" = `n()`)
+
+traj_by_mean_trimester <- traj_by_trimester_total %>% 
+  dplyr::left_join(site_years, by = "site")
+
 #---- build a raster grid ----
 
 new_raster <- function(grid_resolution, grid_lon_range, grid_lat_range) {
@@ -143,7 +154,7 @@ grid_table <- expand.grid(seq(min(grid_lon_range), by = grid_resolution, length.
 
 #---- link the data to the raster ----
 
-my_treshold <- 0.025
+my_treshold <- 0.02
 
 #----- Plot total ----
 for (my_site in unique(dplyr::pull(my_sites, site))) {
@@ -312,6 +323,67 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
                         filename = file.path(out_dir,  paste0(out_file, ".tif")), 
                         options = c('TFW=YES'))
     
+    data_vector %>% 
+      write.table(file = file.path(out_dir, paste0(out_file, ".txt")))
+    rm(data_vector)
+  }
+}
+
+#----- Plot by total trimester ----
+
+
+for (my_site in unique(dplyr::pull(my_sites, site))) {
+  for (my_trimester in unique(dplyr::pull(dplyr::filter(traj_by_mean_trimester, 
+                                                        site == my_site), 
+                                          traj_trimester_total))) {
+    print(sprintf("Site: %s Trimester: %s Treshold: %s", my_site, my_trimester, 
+                  my_treshold)) 
+    data_vector <- traj_by_mean_trimester %>% 
+      dplyr::filter(site == my_site, traj_trimester_total == my_trimester) %>% 
+      dplyr::mutate("mean_trajectory" = trimester / years_per_site, 
+                    "treshold" = max(mean_trajectory) * my_treshold) %>% 
+      dplyr::filter(mean_trajectory >= treshold) %>% 
+      ensurer::ensure_that(nrow(.) > 0, err_desc = "No data found!") %>% 
+      ensurer::ensure_that(length(unique(.$site)) == 1, 
+                           length(unique(.$traj_trimester_total)) == 1, 
+                           err_desc = "Invalid trajectory site or trimester") %>% 
+      right_join(grid_table, by = "sp_index")
+    
+    grid_raster <- new_raster(grid_resolution, grid_lon_range, grid_lat_range)
+    grid_raster[] <- data_vector %>%
+      dplyr::pull(mean_trajectory)
+    
+    #---- Count neighbors ----
+    na_neighbors <- raster::focal(grid_raster, 
+                                  w = matrix(rep(1, (neighbor_radius * 2 + 1)^2), 
+                                             ncol = (neighbor_radius * 2 + 1)), 
+                                  fun = function(x){sum(is.na(x))})
+    data_vector <- data_vector %>% 
+      dplyr::mutate(missing_neigbors = na_neighbors[],
+                    mean_trajectory = ifelse(missing_neigbors <= max_missing_neighbors,
+                                             mean_trajectory, NA))
+    
+    grid_raster <- new_raster(grid_resolution, grid_lon_range, grid_lat_range)
+    grid_raster[] <- data_vector %>%
+      dplyr::pull(mean_trajectory)
+    
+    #---- Save the plot ----
+    out_file <- paste0(my_site, '_', my_trimester)
+    png(filename = file.path(out_dir, paste0(out_file, ".png")))
+    plot(grid_raster, main =  sprintf("Site: %s Trimester: %s Treshold: %s", 
+                                      my_site, my_trimester, my_treshold)) 
+    points(dplyr::select(site_location_tb, longitude, latitude))
+    maps::map("world",
+              xlim = grid_lon_range,
+              ylim = grid_lat_range,
+              add = TRUE)
+    dev.off()
+    raster::writeRaster(grid_raster, 
+                        filename = file.path(out_dir,  paste0(out_file, ".tif")), 
+                        options = c('TFW=YES'))
+    
+    data_vector %>% 
+      write.table(file = file.path(out_dir, paste0(out_file, ".txt")))
     rm(data_vector)
   }
 }

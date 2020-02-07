@@ -1,7 +1,7 @@
 source("/home/lagee/Documents/ghProjects/cqmaTools/R/util.R")
 #-------------------------------------
 # set up
-# ATENCAO --->> NAO ESQUECER DE MODIFICAR A MASSA MOLAR DO GAS NA LINHA 197
+# ATENCAO --->> NAO ESQUECER DE MODIFICAR A MASSA MOLAR DO GAS NA LINHA 200
 #-------------------------------------
 
 setwd("/home/lagee/Documents/ghProjects/cqmaTools")
@@ -10,11 +10,11 @@ library(devtools)
 devtools::load_all()
 
 
-#s = c('alf','rba','san','tab','tef')
-site <- "alf"
+s = c('alf','rba','san','tab','tef')
+#site <- "alf"
 
 for (site in s) {
-  gas <- "co2"   # ATENCAO --->> NAO ESQUECER DE MODIFICAR A MASSA MOLAR DO GAS NA LINHA 200 (CO2=12 /CO=28 /CH4=16 /N2O=44)
+  gas <- "n2o"   # ATENCAO --->> NAO ESQUECER DE MODIFICAR A MASSA MOLAR DO GAS NA LINHA 200 (CO2=12 /CO=28 /CH4=16 /N2O=44)
   data.in.path <- "/home/lagee/Documents/alber/test/briefcase"
   #file.path(data.in.path, "rba.co2_bkgTable.txt")
   #file.path(data.in.path, "RBA_briefdata.txt")
@@ -119,7 +119,7 @@ for (site in s) {
   profbud.df["tempcalc"] <- tempfunc(profbud.df$heightcalc)
   profbud.df["prescalc"] <- presfunc(profbud.df$heightcalc)
   # update key column names
-  colnames(profbud.df)[c(41,42,43)] <- c("tempBrief", "humidityBrief", "pressureBrief")
+  colnames(profbud.df)[c(40,41,42)] <- c("tempBrief", "humidityBrief", "pressureBrief")
   # temperature - fill in the gaps
   sel <- (profbud.df$tempBrief > -5) & (profbud.df$tempBrief < 35)                # valid temperature range
   sel[is.na(sel)] <- FALSE

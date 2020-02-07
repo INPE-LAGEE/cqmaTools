@@ -273,13 +273,13 @@ for (i in 1:length(rawdatafile.vec)) {
   filterRawfile <- filterRawfile[[1]]
   if (nrow(wrongcoords)  > 0) {
     logger::log_warn(paste("Wrong coords found in raw data file:", 
-                       nrow(wrongcoords), "\n", df2text(wrongcoords), 
-                       sep  = " "))
+                           nrow(wrongcoords), "\n", df2text(wrongcoords), 
+                           sep  = " "))
   }
   if (nrow(duplicatedRows)  > 0) {
     logger::log_warn(paste("Duplicated or inconsistent  rows in raw data file:", 
-                       nrow(duplicatedRows), "\n", df2text(duplicatedRows), 
-                       sep  = " "))
+                           nrow(duplicatedRows), "\n", df2text(duplicatedRows), 
+                           sep  = " "))
   }
   #-----------------------------------------------------------------------------
   debug(logger, "step 02 - Check Hysplit files")
@@ -359,7 +359,7 @@ for (i in 1:length(rawdatafile.vec)) {
   }
   if (sum(traj.inland) > 0 | length(traj.inland) == 0) {
     log4r::warn(logger, paste("Some trajectories don't reach the sea: ", 
-                       sum(traj.inland), sep = ""))
+                              sum(traj.inland), sep = ""))
   }
   # update
   hysplit.nohead.files["keep"] <- hysplit.nohead.files["keep"] & hysplit.nohead.files["sea"]
@@ -369,8 +369,8 @@ for (i in 1:length(rawdatafile.vec)) {
   #-----------------------------------------------------------------------------
   # run the filter
   traj.inbound <- trajinbound(traj.intersections = traj.intersections, 
-                               minx = inbound.minx, maxx = inbound.maxx, 
-                               miny = inbound.miny, maxy = inbound.maxy)
+                              minx = inbound.minx, maxx = inbound.maxx, 
+                              miny = inbound.miny, maxy = inbound.maxy)
   # merge results
   colnames(traj.inbound) <- c("file.vec", "inBound" )
   hysplit.nohead.files <- merge(hysplit.nohead.files, traj.inbound, 
@@ -394,7 +394,7 @@ for (i in 1:length(rawdatafile.vec)) {
   # run the filter
   stations.df$stationfile <- paste(stations.df$stationfile, gas, "txt", sep = ".")
   traj.inStation <- trajOutInterpolation(traj.intersections = traj.intersections, 
-                                          stations.df = stations.df)
+                                         stations.df = stations.df)
   # merge results
   colnames(traj.inStation) <- c("file.vec", "inStation" )
   hysplit.nohead.files <- merge(hysplit.nohead.files, traj.inStation, 
@@ -475,14 +475,14 @@ for (i in 1:length(rawdatafile.vec)) {
   #-----------------------------------------------------------------------------
   if (nrow(hysplit.nohead.files) > 0) {
     siteyearplot.list <- plotTrajYear(file.vec = as.vector(unlist(hysplit.nohead.files["file.vec"])), 
-                                       path.out = plot.path, 
-                                       device = device, 
-                                       map.xlim = map.xlim, 
-                                       map.ylim = map.ylim, 
-                                       map.height = map.height, 
-                                       map.width = map.width, 
-                                       stations.df = stations.df, 
-                                       plot2file = plot2file)
+                                      path.out = plot.path, 
+                                      device = device, 
+                                      map.xlim = map.xlim, 
+                                      map.ylim = map.ylim, 
+                                      map.height = map.height, 
+                                      map.width = map.width, 
+                                      stations.df = stations.df, 
+                                      plot2file = plot2file)
   }
   #-----------------------------------------------------------------------------
   debug(logger, "step 12 - time to the sea")
@@ -497,7 +497,7 @@ for (i in 1:length(rawdatafile.vec)) {
     cnames = HYSPLIT.COLNAMES,
     srs = SPATIAL.REFERENCE.SYSTEM
   )
-
+  
   intersect_rows <- unlist(
     lapply(traj.intersectionsSA[[2]], function(x){
       res <- NA
