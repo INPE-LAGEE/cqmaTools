@@ -13,8 +13,8 @@ library(raster)
 #---- Configuration ----
 
 trajectory_dir <- "/home/lagee/Documents/alber/test/hysplitsimulations/all_co2"
-station_data_dir <- "/home/lagee/Dropbox/DADOS LaGEE/ScriptsR_Figures/influence_area_3500/by_year/stn_byia"
-out_dir <- "/home/lagee/Dropbox/DADOS LaGEE/ScriptsR_Figures/influence_area_3500/by_year_mean"
+station_data_dir <- "/home/lagee/Dropbox/DADOS LaGEE/ScriptsR_Figures/influence_area_1300/by_year/stn_byia/man"
+out_dir <- "/home/lagee/Dropbox/DADOS LaGEE/ScriptsR_Figures/influence_area_1300/by_year_mean/man"
 HYSPLIT.COLNAMES <- c("V1", "V2", "year", "month", "day", "hour", "min", 
                       "V8", "V9", "lat", "lon", "height", "pressure") 
 grid_resolution <- 1 # DO NOT CHANGE!
@@ -26,7 +26,8 @@ site_location_tb <- tribble(
   "alf", -55.78, -8.822, 
   "rba", -64.74, -9.02, 
   "san", -54.95, -2.85,
-  "tab", -69.9, -5.74,
+  "tab", -69.9, -5.74, 
+  "man", -60.21, -2.6,
   "tef", -66.5, -3.68
 ) 
 
@@ -70,7 +71,7 @@ trajectory_tb <- trajectory_dir %>%
   dplyr::mutate(sp_index = stringr::str_c(floor(lon), '_', floor(lat)), 
                 traj_trimester = paste(traj_year,findInterval(traj_month, seq(1, 12, by = 3)), sep = '_'), 
                 traj_trimester_total = paste(findInterval(traj_month, seq(1, 12, by = 3)), sep = '_')) %>% 
-  dplyr::filter(height <= 3500) %>% 
+  dplyr::filter(height <= 1300) %>% 
   #ensurer::ensure_that(all(.$traj_trimester > 0 && .$traj_trimester < 5))
   ensurer::ensure_that(all(.$traj_trimester_total > 0 && .$traj_trimester_total < 5))
 
@@ -154,7 +155,7 @@ grid_table <- expand.grid(seq(min(grid_lon_range), by = grid_resolution, length.
 
 #---- link the data to the raster ----
 
-my_treshold <- 0.02
+my_treshold <- 0.025
 
 #----- Plot total ----
 for (my_site in unique(dplyr::pull(my_sites, site))) {
@@ -387,3 +388,4 @@ for (my_site in unique(dplyr::pull(my_sites, site))) {
     rm(data_vector)
   }
 }
+
