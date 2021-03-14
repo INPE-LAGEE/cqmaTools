@@ -24,7 +24,11 @@ grid_lat_range <- c(-30, 10)
 site_location_tb <- tribble(
   ~site, ~longitude, ~latitude, ~site_height,
  #"ALF",     -55.78,    -8.822,    208,
+<<<<<<< HEAD
   "ALF",     -56.78,    -8.822,    208, # Luciana's new table
+=======
+  "ALF",     -55.78,    -8.822,    208, # Luciana's new table
+>>>>>>> 390c169105da0077461ebeed909289ba786e12c5
   "RBA",     -64.74,    -9.02,     120,
   "SAN",     -54.95,    -2.85,     152,
  #"TAB",     -68.9,     -5.74,     204,
