@@ -22,14 +22,18 @@ grid_lon_range <- c(-80, -30)
 grid_lat_range <- c(-30, 10)
 
 site_location_tb <- tribble(
-  ~site, ~longitude, ~latitude,
-  "alf", -55.78, -8.822,
-  "rba", -64.74, -9.02,
-  "san", -54.95, -2.85,
-  "tab", -69.9, -5.74,
-  "man", -60.21, -2.6,
-  "tef", -66.5, -3.68
+  ~site, ~longitude, ~latitude, ~site_height,
+ #"ALF",     -55.78,    -8.822,    208,
+  "ALF",     -56.78,    -8.822,    208, # Luciana's new table
+  "RBA",     -64.74,    -9.02,     120,
+  "SAN",     -54.95,    -2.85,     152,
+ #"TAB",     -68.9,     -5.74,     204,
+  "TAB",     -69.9,     -5.74,     204, # Luciana's new table
+ #"MAN",     -60.21,    -2.6,       85,
+  "MAN",     -59.82,    -2.5,       85, # Luciana's new table
+  "TEF",     -66.5,     -3.68,      90
 )
+
 
 # Number of neighbor cells to take into account express as a "radius". It's a
 # "radius" where i.e. 1 means a 3x3, 2 means 5x5, etc
@@ -40,21 +44,16 @@ max_missing_neighbors <- 4
 
 #---- compute the statistics ----
 
-
-#' Helper function for filtering a tibble using the minimum and maximum height.
-#' It returns TRUE if all the values are inside the range min_h and max_h.
+#' Helper function for getting the height range of a trajectory.
 #'
-#' @param x      A list of tibbles with the variable "height".
-#' @param min_h  A single double. The minimum height.
-#' @param max_h  A single double. The maximum height.
-#' @param return A logical.
-filter_by_height <- function(x, min_h, max_h) {
-    vapply(x, function(x) {
-        if (any(!dplyr::between(x$height, left = min_h, right = max_h)))
-            return(FALSE)
-        return(TRUE)
-    },
-    logical(1))
+#' @param data_tb A tibble. Trajectory data.
+#' @return        A tibble.
+get_height_range <- function(data_tb) {
+    h_range <- data_tb %>%
+        dplyr::pull(height) %>%
+        range()
+    tibble::tibble(height_min = h_range[[1]],
+                   height_max = h_range[[2]])
 }
 
 # Create a table of files.
@@ -83,19 +82,23 @@ trajectory_tb <- trajectory_dir %>%
                                                           lon = readr::col_double(),
                                                           height = readr::col_double(),
                                                           pressure = readr::col_double()))) %>%
-  # TODO: Use site height instead of sea mean level.
-  #-
-  # Filter trajectories between 50mts and 1500mts.
-  dplyr::filter(filter_by_height(x = .$data,
-                                 min_h = 50,
-                                 max_h = 1500)) %>%
+  # Filter trajectories between 50mts and 1500mts respect to each site.
+  dplyr::mutate(height_range = purrr::map(data, get_height_range)) %>%
+  tidyr::unnest(height_range) %>%
+  dplyr::left_join(site_location_tb, by = "site") %>%
+  dplyr::mutate(site_height_min = site_height + 50,
+                site_height_max = site_height + 1500) %>%
+  dplyr::filter(height_min >= site_height_min,
+                height_max <= site_height_max) %>%
+  dplyr::select(-height_min, -height_max,
+                -site_height_min, -site_height_max, -site_height) %>%
   tidyr::unnest(cols = c(data)) %>%
   dplyr::filter(lon >= grid_lon_range[1], lon <= grid_lon_range[2],
                 lat >= grid_lat_range[1], lat <= grid_lat_range[2]) %>%
   dplyr::mutate(sp_index = stringr::str_c(floor(lon), '_', floor(lat)),
                 traj_trimester = paste(traj_year,findInterval(traj_month, seq(1, 12, by = 3)), sep = '_'),
                 traj_trimester_total = paste(findInterval(traj_month, seq(1, 12, by = 3)), sep = '_')) %>%
-  dplyr::filter(height <= 1300) %>%
+  #dplyr::filter(height <= 1300) %>%
   #ensurer::ensure_that(all(.$traj_trimester > 0 && .$traj_trimester < 5))
   ensurer::ensure_that(all(.$traj_trimester_total > 0 && .$traj_trimester_total < 5))
 
